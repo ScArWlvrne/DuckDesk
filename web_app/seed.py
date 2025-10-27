@@ -12,12 +12,16 @@ Written in collaboration with ChatGPT.
 """
 
 import os
+import csv
 import random
 from datetime import datetime, timedelta
+from pathlib import Path
 from sqlalchemy import create_engine, text
 
 # Use container-aware DATABASE_URL when available
 DB_URL = os.getenv('DATABASE_URL', 'postgresql://localhost/atgs')
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 USERS = [
     # Admins (real as requested)
@@ -39,6 +43,33 @@ USERS = [
 TICKET_STATUSES = ["open", "in progress", "closed"]
 DEPARTMENTS = ["Tykeson", "Computer Science", "Financial Aid", "Housing"]
 
+INSERT_DEPARTMENT_SQL = text(
+    """
+    INSERT INTO departments (name, display_name)
+    VALUES (:name, :display_name)
+    ON CONFLICT (name) DO NOTHING
+    RETURNING department_id
+    """
+)
+
+INSERT_MAJOR_SQL = text(
+    """
+    INSERT INTO majors (name, display_name, department_id)
+    VALUES (:name, :display_name, :department_id)
+    ON CONFLICT (name) DO NOTHING
+    RETURNING major_id
+    """
+)
+
+INSERT_MINOR_SQL = text(
+    """
+    INSERT INTO minors (name, display_name, department_id)
+    VALUES (:name, :display_name, :department_id)
+    ON CONFLICT (name) DO NOTHING
+    RETURNING minor_id
+    """
+)
+
 INSERT_USER_SQL = text(
     """
     INSERT INTO users (email, display_name, role)
@@ -59,10 +90,119 @@ INSERT_TICKET_SQL = text(
 SELECT_COUNT_USERS = text("SELECT COUNT(*) FROM users")
 SELECT_COUNT_TICKETS = text("SELECT COUNT(*) FROM tickets")
 
+def read_csv(filepath):
+    """Read a CSV file and return rows as dictionaries."""
+    if not filepath.exists():
+        print(f"Warning: {filepath} not found, skipping.")
+        return []
+    
+    with open(filepath, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        return list(reader)
+
+
+def seed_academics(conn):
+    """Seed departments, majors, and minors from CSV files (idempotent)."""
+    
+    # Seed departments
+    print("Seeding departments...")
+    csv_path = DATA_DIR / 'departments.csv'
+    dept_rows = read_csv(csv_path)
+    dept_map = {}
+    inserted_depts = 0
+    
+    for row in dept_rows:
+        name = row.get('name', '').strip()
+        display_name = row.get('display_name', '').strip()
+        
+        if not name or not display_name:
+            continue
+        
+        try:
+            result = conn.execute(INSERT_DEPARTMENT_SQL, {'name': name, 'display_name': display_name})
+            if result.rowcount and result.rowcount > 0:
+                dept_id = result.fetchone()[0]
+                dept_map[name] = dept_id
+                inserted_depts += 1
+            else:
+                # Already exists, fetch it
+                existing = conn.execute(
+                    text("SELECT department_id FROM departments WHERE name = :name"),
+                    {'name': name}
+                ).fetchone()
+                if existing:
+                    dept_map[name] = existing[0]
+        except Exception as e:
+            print(f"Error inserting department {name}: {e}")
+    
+    print(f"Inserted {inserted_depts} departments (total available: {len(dept_map)}).")
+    
+    # Seed majors
+    print("Seeding majors...")
+    csv_path = DATA_DIR / 'majors.csv'
+    major_rows = read_csv(csv_path)
+    inserted_majors = 0
+    
+    for row in major_rows:
+        name = row.get('name', '').strip()
+        display_name = row.get('display_name', '').strip()
+        dept_name = row.get('department', '').strip()
+        
+        if not name or not display_name:
+            continue
+        
+        dept_id = dept_map.get(dept_name) if dept_name else None
+        
+        try:
+            result = conn.execute(INSERT_MAJOR_SQL, {
+                'name': name,
+                'display_name': display_name,
+                'department_id': dept_id
+            })
+            if result.rowcount and result.rowcount > 0:
+                inserted_majors += 1
+        except Exception as e:
+            print(f"Error inserting major {name}: {e}")
+    
+    print(f"Inserted {inserted_majors} majors.")
+    
+    # Seed minors
+    print("Seeding minors...")
+    csv_path = DATA_DIR / 'minors.csv'
+    minor_rows = read_csv(csv_path)
+    inserted_minors = 0
+    
+    for row in minor_rows:
+        name = row.get('name', '').strip()
+        display_name = row.get('display_name', '').strip()
+        dept_name = row.get('department', '').strip()
+        
+        if not name or not display_name:
+            continue
+        
+        dept_id = dept_map.get(dept_name) if dept_name else None
+        
+        try:
+            result = conn.execute(INSERT_MINOR_SQL, {
+                'name': name,
+                'display_name': display_name,
+                'department_id': dept_id
+            })
+            if result.rowcount and result.rowcount > 0:
+                inserted_minors += 1
+        except Exception as e:
+            print(f"Error inserting minor {name}: {e}")
+    
+    print(f"Inserted {inserted_minors} minors.")
 
 def main():
     engine = create_engine(DB_URL)
     with engine.begin() as conn:
+        # First seed departments, majors, minors
+        try:
+            seed_academics(conn)
+        except Exception:
+            seed_academics = 0
         # Check if database is empty (no users and no tickets)
         try:
             users_count = conn.execute(SELECT_COUNT_USERS).scalar()
