@@ -2,7 +2,7 @@
 
 Created 10/30/25 - Kyran McCown & ChatGPT'''
 
-from .app import db
+from web_app.app import db
 
 class Department(db.Model):
     __tablename__ = 'departments'

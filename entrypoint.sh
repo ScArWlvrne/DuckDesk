@@ -14,9 +14,9 @@ echo "Database is up!"
 # Move into the app directory
 cd web_app
 
-# Run migrations
+# Run database migrations using migrate.py
 echo "Running database migrations..."
-flask db upgrade
+python migrate.py
 
 # Seed the database
 echo "Seeding database..."

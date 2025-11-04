@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/web_app
 
 # Copy dependency list and install
 COPY requirements.txt .
@@ -16,6 +16,7 @@ EXPOSE 5000
 
 # Set environment variables
 ENV FLASK_RUN_HOST=0.0.0.0
+ENV PYTHONPATH=/app
 
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
