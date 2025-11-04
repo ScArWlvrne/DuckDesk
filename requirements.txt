@@ -4,3 +4,8 @@ flask_sqlalchemy
 psycopg2-binary
 flask-migrate
 python-dotenv
+npm
+node>=20.0
+react>=19.1
+react-dom>=19.1
+next>=15.5
