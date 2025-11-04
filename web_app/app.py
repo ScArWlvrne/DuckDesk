@@ -10,97 +10,105 @@ from sqlalchemy import case
 from sqlalchemy.orm import joinedload
 import os
 
-app = Flask(__name__)
 
-# Configure PostgreSQL connection
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://localhost/atgs')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'dev' # TODO: Temporary, replace later
+db = SQLAlchemy()
+migrate = Migrate()
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
-from models import *
 
-@app.route('/')
-def home():
-    # For now, just show users to confirm connection
-    users = User.query.all()
-    return render_template('home.html', users=users)
-
-@app.route('/login/<int:user_id>')
-def login(user_id):
-    session['user_id'] = user_id
-    return redirect(url_for('submit_ticket'))
-
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        name = request.form.get('name')
-        role = request.form.get('role', 'student')
-
-        if not email or not name:
-            return "Error: Email and name are required.", 400
-
-        existing = User.query.filter_by(email=email).first()
-        if existing:
-            return f"User with email {email} already exists.", 400
-
-        new_user = User(email=email, display_name=name, role=role) # type:ignore
-        db.session.add(new_user)
-        db.session.commit()
-
-        return redirect(url_for('home'))  # go back to homepage after signing up
-
-    # If it's a GET request, show the signup form
-    return render_template('signup.html')
-
-@app.route('/submit_ticket', methods=['GET', 'POST'])
-def submit_ticket():
-    user_id = session.get('user_id')
-    if not user_id:
-        return redirect(url_for('home'))
+def create_app():
+    from web_app.models import Department, Major, Minor, User, Ticket
     
-    current_user = User.query.get(user_id)
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://localhost/atgs')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
 
-    if request.method == 'POST':
-        author = session.get('user_id')
-        department = request.form.get('department')
-        subject = request.form.get('subject')
-        message = request.form.get('message')
+    db.init_app(app)
+    migrate.init_app(app, db)
 
-        new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
-        db.session.add(new_ticket)
-        db.session.commit()
+    @app.route('/')
+    def home():
+        # For now, just show users to confirm connection
+        users = User.query.all()
+        return render_template('home.html', users=users)
 
-        return "Ticket created successfully"
-    
-    return render_template('submit_ticket.html', current_user=current_user)
+    @app.route('/login/<int:user_id>')
+    def login(user_id):
+        session['user_id'] = user_id
+        return redirect(url_for('submit_ticket'))
 
-@app.route('/tickets')
-def tickets():
-    user_id = session.get('user_id')
-    if not user_id:
-        return redirect(url_for('home'))
-    
-    current_user = User.query.get(user_id)
+    @app.route('/signup', methods=['GET', 'POST'])
+    def signup():
+        if request.method == 'POST':
+            email = request.form.get('email')
+            name = request.form.get('name')
+            role = request.form.get('role', 'student')
 
-    status_order = case(
-        (Ticket.status == 'open', 1),
-        (Ticket.status == 'in progress', 2),
-        (Ticket.status == 'closed', 3),
-    )
+            if not email or not name:
+                return "Error: Email and name are required.", 400
 
-    if current_user.role in ['advisor', 'admin']: # type:ignore
-        # Fetch all tickets from the database
-        tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).options(joinedload(Ticket.author_user)).all()  # type:ignore
-    else:
-        # Fetch only tickets authored by the student
-        tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(joinedload(Ticket.author_user)).all() # type:ignore
-    
-    return render_template('tickets.html', tickets=tickets)
+            existing = User.query.filter_by(email=email).first()
+            if existing:
+                return f"User with email {email} already exists.", 400
+
+            new_user = User(email=email, display_name=name, role=role) # type:ignore
+            db.session.add(new_user)
+            db.session.commit()
+
+            return redirect(url_for('home'))  # go back to homepage after signing up
+
+        # If it's a GET request, show the signup form
+        return render_template('signup.html')
+
+    @app.route('/submit_ticket', methods=['GET', 'POST'])
+    def submit_ticket():
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('home'))
+        
+        current_user = User.query.get(user_id)
+
+        if request.method == 'POST':
+            author = session.get('user_id')
+            department = request.form.get('department')
+            subject = request.form.get('subject')
+            message = request.form.get('message')
+
+            new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
+            db.session.add(new_ticket)
+            db.session.commit()
+
+            return "Ticket created successfully"
+        
+        return render_template('submit_ticket.html', current_user=current_user)
+
+    @app.route('/tickets')
+    def tickets():
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('home'))
+        
+        current_user = User.query.get(user_id)
+
+        status_order = case(
+            (Ticket.status == 'open', 1),
+            (Ticket.status == 'in progress', 2),
+            (Ticket.status == 'closed', 3),
+        )
+
+        if current_user.role in ['advisor', 'admin']: # type:ignore
+            # Fetch all tickets from the database
+            tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).options(joinedload(Ticket.author_user)).all()  # type:ignore
+        else:
+            # Fetch only tickets authored by the student
+            tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(joinedload(Ticket.author_user)).all() # type:ignore
+        
+        return render_template('tickets.html', tickets=tickets)
+
+    with app.app_context():
+        return app
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    create_app().run(debug=True)
