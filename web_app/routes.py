@@ -1,7 +1,8 @@
-from flask import Blueprint, Flask, request, render_template, redirect, url_for, session
-from sqlalchemy import case
-from sqlalchemy.orm import joinedload
+from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
+from sqlalchemy import case, or_
+from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
+from datetime import datetime
 
 from web_app.models import Department, Major, Minor, User, Ticket
 
@@ -63,7 +64,7 @@ def submit_ticket():
     
     return render_template('submit_ticket.html', current_user=current_user)
 
-@bp.route('/tickets')
+@bp.route('/api/get_tickets')
 def tickets():
     user_id = session.get('user_id')
     if not user_id:
@@ -72,16 +73,71 @@ def tickets():
     current_user = User.query.get(user_id)
 
     status_order = case(
-        (Ticket.status == 'open', 1),
-        (Ticket.status == 'in progress', 2),
-        (Ticket.status == 'closed', 3),
+        (Ticket.status == 1, 1), # OPEN
+        (Ticket.status == 3, 2), # AWAITING_ASSIGNEE
+        (Ticket.status == 2, 3), # AWAITING_AUTHOR
+        (Ticket.status == 0, 4), # CLOSED
     )
 
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+
+    query = Ticket.query
+
+    if 'status' in request.args:
+        query = query.filter(Ticket.status == int(request.args['status']))
+
+    if 'department' in request.args:
+        query = query.filter(Ticket.department == int(request.args['department']))
+
+    if 'priority' in request.args:
+        query = query.filter(Ticket.priority == int(request.args['priority']))
+    
+    if 'created' in request.args:
+        created = datetime.strptime(request.args['created'], "%Y-%m-%d")
+        query = query.filter(Ticket.created_at == created)
+
+    if 'updated' in request.args:
+        updated = datetime.strptime(request.args['updated'], "%Y-%m-%d")
+        query = query.filter(Ticket.last_updated == updated)
+
+    if 'text' in request.args:
+        search_term = request.args['text']
+        terms = search_term.split()
+
+        author_alias = aliased(User)
+        assignee_alias = aliased(User)
+
+        query = query.join(author_alias, Ticket.author_user) # type:ignore
+        query = query.join(assignee_alias, Ticket.assignee_user) # type:ignore
+        query = query.filter(
+            or_(
+                *[Ticket.subject.ilike(f"%{term}%") for term in terms],
+                *[Ticket.message.ilike(f"%{term}%") for term in terms],
+                author_alias.display_name.ilike(f"%{search_term}%"),
+                assignee_alias.display_name.ilike(f"%{search_term}%"),
+            )
+        )
+    
     if current_user.role in ['advisor', 'admin']: # type:ignore
         # Fetch all tickets from the database
-        tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).options(joinedload(Ticket.author_user)).all()  # type:ignore
+        pagination = query.order_by(status_order, Ticket.last_updated.desc()).options(joinedload(Ticket.author_user)).paginate(page=page, per_page=per_page)  # type:ignore
+        tickets = pagination.items
     else:
         # Fetch only tickets authored by the student
-        tickets = Ticket.query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(joinedload(Ticket.author_user)).all() # type:ignore
-    
-    return render_template('tickets.html', tickets=tickets)
+        pagination = query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(joinedload(Ticket.author_user)).paginate(page=page, per_page=per_page)  # type:ignore
+        tickets = pagination.items
+
+    response = {
+        "tickets": [t.to_dict() for t in tickets],
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "total_pages": pagination.pages,
+        "total_items": pagination.total,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+        "next_page": pagination.next_num,
+        "prev_page": pagination.prev_num
+    }
+   
+    return jsonify(response)

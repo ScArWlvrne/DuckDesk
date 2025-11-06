@@ -3,6 +3,13 @@
 Created 10/30/25 - Kyran McCown & ChatGPT'''
 
 from web_app.app import db
+import enum
+
+class TicketStatus(enum.IntEnum):
+    CLOSED = 0
+    OPEN = 1
+    AWAITING_AUTHOR = 2
+    AWAITING_ASSIGNEE = 3
 
 class Department(db.Model):
     __tablename__ = 'departments'
@@ -56,14 +63,29 @@ class Ticket(db.Model):
     ticket_id = db.Column(db.Integer, primary_key=True)
     author = db.Column(db.ForeignKey('users.user_id'))
     assignee = db.Column(db.ForeignKey('users.user_id'))
-    department = db.Column(db.String(50), default="Tykeson")
+    department = db.Column(db.ForeignKey('department.department_id'))
     priority = db.Column(db.Integer)
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    status = db.Column(db.Text, default='open')
+    status = db.Column(db.Integer, default=TicketStatus.OPEN)
     created_at = db.Column(db.DateTime)
     last_updated = db.Column(db.DateTime)
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='assigned_tickets')
+    dept_name = db.relationship("Departmnet", foregin_keys=[department])
+
+    def to_dict(self):
+        return {
+            'ticket_id': self.ticket_id,
+            'author_id': self.author,
+            'assignee_id': self.assignee,
+            'department': self.department,
+            'priority': self.priority,
+            'subject': self.subject,
+            'message': self.message,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+        }
