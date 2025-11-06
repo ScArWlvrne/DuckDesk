@@ -63,7 +63,7 @@ class Ticket(db.Model):
     ticket_id = db.Column(db.Integer, primary_key=True)
     author = db.Column(db.ForeignKey('users.user_id'))
     assignee = db.Column(db.ForeignKey('users.user_id'))
-    department = db.Column(db.ForeignKey('department.department_id'))
+    department = db.Column(db.ForeignKey('departments.department_id'))
     priority = db.Column(db.Integer)
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
@@ -74,7 +74,7 @@ class Ticket(db.Model):
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='assigned_tickets')
-    dept_name = db.relationship("Departmnet", foregin_keys=[department])
+    dept_name = db.relationship("Department", foreign_keys=[department])
 
     def to_dict(self):
         return {
