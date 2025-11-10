@@ -34,8 +34,7 @@ def signup():
             return f"User with email {email} already exists.", 400
 
         new_user = User(email=email, display_name=name, role=role) # type:ignore
-        db.session.add(new_user)
-        db.session.commit()
+        new_user.dbwrite() # now using new dbwrite method
 
         return redirect(url_for('main.home'))  # go back to homepage after signing up
 
@@ -57,8 +56,7 @@ def submit_ticket():
         message = request.form.get('message')
 
         new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
-        db.session.add(new_ticket)
-        db.session.commit()
+        new_ticket.dbwrite() # now using new dbwrite method
 
         return "Ticket created successfully"
     

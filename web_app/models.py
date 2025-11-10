@@ -4,6 +4,7 @@ Created 10/30/25 - Kyran McCown & ChatGPT'''
 
 from web_app.app import db
 import enum
+from datetime import datetime, timezone
 
 class TicketStatus(enum.IntEnum):
     CLOSED = 0
@@ -18,6 +19,19 @@ class Department(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     display_name = db.Column(db.String(100), nullable=False)
 
+    def dbwrite(self, commit: bool = True):
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+
+    def to_dict(self):
+        return {
+            'department_id': self.department_id,
+            'name': self.name,
+            'display_name': self.display_name,
+        }
+
 class Major(db.Model):
     __tablename__ = 'majors'
 
@@ -28,6 +42,20 @@ class Major(db.Model):
 
     department = db.relationship('Department', backref='majors')
 
+    def dbwrite(self, commit: bool = True):
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+
+    def to_dict(self):
+        return {
+            'major_id': self.major_id,
+            'name': self.name,
+            'display_name': self.display_name,
+            'department_id': self.department_id,
+        }
+
 class Minor(db.Model):
     __tablename__ = 'minors'
 
@@ -37,6 +65,20 @@ class Minor(db.Model):
     department_id = db.Column(db.ForeignKey('departments.department_id'))
 
     department = db.relationship('Department', backref='minors')
+
+    def dbwrite(self, commit: bool = True):
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+
+    def to_dict(self):
+        return {
+            'minor_id': self.minor_id,
+            'name': self.name,
+            'display_name': self.display_name,
+            'department_id': self.department_id,
+        }
 
 # Define user model that matches database table
 class User(db.Model):
@@ -54,6 +96,24 @@ class User(db.Model):
     major = db.relationship('Major', backref='students')
     minor = db.relationship('Minor', backref='students')
     department = db.relationship('Department', backref='advisors')
+
+    def dbwrite(self, commit: bool = True):
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+
+    def to_dict(self):
+        return {
+            'user_id': self.user_id,
+            'email': self.email,
+            'display_name': self.display_name,
+            'role': self.role,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'major_id': self.major_id,
+            'minor_id': self.minor_id,
+            'department_id': self.department_id,
+        }
 
 # Define ticket model that matches database table
 class Ticket(db.Model):
@@ -75,6 +135,18 @@ class Ticket(db.Model):
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='assigned_tickets')
     dept_name = db.relationship("Department", foreign_keys=[department])
+
+    
+    def dbwrite(self, commit: bool = True):
+        now = datetime.now(timezone.utc)
+        if not self.created_at:
+            self.created_at = now
+        self.last_updated = now
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+
 
     def to_dict(self):
         return {
