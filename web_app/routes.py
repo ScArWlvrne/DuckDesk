@@ -61,8 +61,7 @@ def submit_ticket():
     new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
     
     try:
-        db.session.add(new_ticket)
-        db.session.commit()
+        new_ticket.dbwrite()
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "Error committing ticket to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
