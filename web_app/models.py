@@ -3,6 +3,7 @@
 Created 10/30/25 - Kyran McCown & ChatGPT'''
 
 from web_app.app import db
+from datetime import datetime, UTC
 import enum
 from datetime import datetime, timezone
 
@@ -128,8 +129,8 @@ class Ticket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime)
-    last_updated = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    last_updated = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')

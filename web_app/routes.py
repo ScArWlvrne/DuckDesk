@@ -1,9 +1,9 @@
+from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
 from sqlalchemy import case, or_
 from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
 from datetime import datetime
-
 from web_app.models import Department, Major, Minor, User, Ticket
 
 bp = Blueprint('main', __name__)
@@ -41,28 +41,37 @@ def signup():
     # If it's a GET request, show the signup form
     return render_template('signup.html')
 
-@bp.route('/submit_ticket', methods=['GET', 'POST'])
+@bp.route('/api/submit_ticket', methods=['POST'])
 def submit_ticket():
     user_id = session.get('user_id')
+    data = request.get_json()
+
     if not user_id:
-        return redirect(url_for('main.home'))
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
-    current_user = User.query.get(user_id)
+    author = session.get('user_id')
+    department = data.get('department')
+    subject = data.get('subject')
+    message = data.get('message')
 
-    if request.method == 'POST':
-        author = session.get('user_id')
-        department = request.form.get('department')
-        subject = request.form.get('subject')
-        message = request.form.get('message')
-
-        new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
-        new_ticket.dbwrite() # now using new dbwrite method
-
-        return "Ticket created successfully"
+    if not all([department, subject, message]):
+        return jsonify({"message": "Incomplete ticket structure"}), HTTPStatus.BAD_REQUEST
+   
+   
+    new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
     
-    return render_template('submit_ticket.html', current_user=current_user)
+    try:
+        db.session.add(new_ticket)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error committing ticket to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
-@bp.route('/api/get_tickets')
+    
+    return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
+    
+
+@bp.route('/api/get_tickets', methods = ['GET'])
 def tickets():
     user_id = session.get('user_id')
     if not user_id:
@@ -138,4 +147,4 @@ def tickets():
         "prev_page": pagination.prev_num
     }
    
-    return jsonify(response)
+    return jsonify(response), HTTPStatus.OK
