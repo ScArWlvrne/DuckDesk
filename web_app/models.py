@@ -3,6 +3,7 @@
 Created 10/30/25 - Kyran McCown & ChatGPT'''
 
 from web_app.app import db
+from datetime import datetime, UTC
 import enum
 
 class TicketStatus(enum.IntEnum):
@@ -16,7 +17,12 @@ class Department(db.Model):
 
     department_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    display_name = db.Column(db.String(100), nullable=False)
+
+    def to_dict(self):
+        return {
+            'department_id': self.department_id,
+            'name': self.name
+        }
 
 class Major(db.Model):
     __tablename__ = 'majors'
@@ -28,6 +34,14 @@ class Major(db.Model):
 
     department = db.relationship('Department', backref='majors')
 
+    def to_dict(self):
+        return {
+            'major_id': self.major_id,
+            'name': self.name,
+            'display_name': self.display_name,
+            'department_id': self.department_id
+        }
+
 class Minor(db.Model):
     __tablename__ = 'minors'
 
@@ -37,6 +51,14 @@ class Minor(db.Model):
     department_id = db.Column(db.ForeignKey('departments.department_id'))
 
     department = db.relationship('Department', backref='minors')
+
+    def to_dict(self):
+        return {
+            'minor_id': self.minor_id,
+            'name': self.name,
+            'display_name': self.display_name,
+            'department_id': self.department_id
+        }
 
 # Define user model that matches database table
 class User(db.Model):
@@ -55,6 +77,18 @@ class User(db.Model):
     minor = db.relationship('Minor', backref='students')
     department = db.relationship('Department', backref='advisors')
 
+    def to_dict(self):
+        return {
+            'user_id': self.user_id,
+            'email': self.email,
+            'display_name': self.display_name,
+            'role': self.role,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'major_id': self.major_id,
+            'minor_id': self.minor_id,
+            'department_id': self.department_id
+        }
+
 # Define ticket model that matches database table
 class Ticket(db.Model):
     __tablename__ = 'tickets'
@@ -68,8 +102,8 @@ class Ticket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime)
-    last_updated = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    last_updated = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
