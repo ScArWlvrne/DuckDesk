@@ -6,6 +6,7 @@ student/advisor ticketing system and graduation planner
 from flask import Flask, request, render_template, redirect, url_for, session
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from sqlalchemy import case
 from sqlalchemy.orm import joinedload
 import os
@@ -23,6 +24,8 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://localhost/atgs')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
+
+    CORS(app, origins=['http://localhost:3000', 'http://localhost:3001'], supports_credentials=True)
 
     db.init_app(app)
     migrate.init_app(app, db)

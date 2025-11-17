@@ -43,14 +43,15 @@ USERS = [
 TICKET_STATUSES = ["open", "in progress", "closed"]
 DEPARTMENTS = ["Tykeson", "Computer Science", "Financial Aid", "Housing"]
 
-INSERT_DEPARTMENT_SQL = text(
-    """
-    INSERT INTO departments (name, display_name)
-    VALUES (:name, :display_name)
-    ON CONFLICT (name) DO NOTHING
-    RETURNING department_id
-    """
-)
+# INSERT_DEPARTMENT_SQL = text(
+#     """
+#     INSERT INTO departments (name, display_name)
+#     VALUES (:name, :display_name)
+#     ON CONFLICT (name) DO NOTHING
+#     RETURNING department_id
+#     """
+# )  Note: display_name column was removed from departments table
+
 
 INSERT_MAJOR_SQL = text(
     """
@@ -115,13 +116,21 @@ def seed_academics(conn):
         name = row.get('name', '').strip()
         display_name = row.get('display_name', '').strip()
         
-        if not name or not display_name:
+        if not name:
             continue
+
+        if not display_name:
+            display_name = name
         
         try:
-            result = conn.execute(INSERT_DEPARTMENT_SQL, {'name': name, 'display_name': display_name})
-            if result.rowcount and result.rowcount > 0:
-                dept_id = result.fetchone()[0]
+            # try to insert 
+            result = conn.execute(
+                text("INSERT INTO departments (name) VALUES (:name) ON CONFLICT (name) DO NOTHING RETURNING department_id"),
+                {'name': name}
+            )
+            row_data = result.fetchone()
+            if row_data:
+                dept_id = row_data[0]
                 dept_map[name] = dept_id
                 inserted_depts += 1
             else:
@@ -194,15 +203,38 @@ def seed_academics(conn):
             print(f"Error inserting minor {name}: {e}")
     
     print(f"Inserted {inserted_minors} minors.")
+    return dept_map
 
 def main():
     engine = create_engine(DB_URL)
     with engine.begin() as conn:
         # First seed departments, majors, minors
         try:
-            seed_academics(conn)
-        except Exception:
-            seed_academics = 0
+            dept_map = seed_academics(conn)
+        except Exception as e:
+            print(f"Error seeding academics: {e}")
+            dept_map = {}
+        
+        # Also ensure the hardcoded departments exist
+        for dept_name in DEPARTMENTS:
+            if dept_name not in dept_map:
+                try:
+                    result = conn.execute(
+                        text("INSERT INTO departments (name) VALUES (:name) ON CONFLICT (name) DO NOTHING RETURNING department_id"),
+                        {'name': dept_name}
+                    )
+                    row_data = result.fetchone()
+                    if row_data:
+                        dept_map[dept_name] = row_data[0]
+                    else:
+                        existing = conn.execute(
+                            text("SELECT department_id FROM departments WHERE name = :name"),
+                            {'name': dept_name}
+                        ).fetchone()
+                        if existing:
+                            dept_map[dept_name] = existing[0]
+                except Exception as e:
+                    print(f"Error ensuring department {dept_name} exists: {e}")
         # Check if database is empty (no users and no tickets)
         try:
             users_count = conn.execute(SELECT_COUNT_USERS).scalar()
@@ -240,26 +272,37 @@ def main():
         now = datetime.utcnow()
         inserted_tickets = 0
 
+        status_map = {
+            "open": 1,
+            "in progress": 2,  # or 3, depending on your logic
+            "closed": 0
+        }
+
         for i in range(10):
             author = random.choice(student_ids)
             assignee = random.choice(advisor_ids) if advisor_ids and random.random() < 0.6 else None
-            department = random.choice(DEPARTMENTS)
+            dept_name = random.choice(DEPARTMENTS)
+            department_id = dept_map.get(dept_name)
+            if not department_id:
+                print(f"Warning: Department '{dept_name}' not found in dept_map, skipping ticket {i+1}")
+                continue
             # Randomly make some priorities null
             priority = random.choice([None, 1, 2, 3])
-            status = random.choice(TICKET_STATUSES)
+            status_str = random.choice(TICKET_STATUSES)
+            status = status_map.get(status_str, 1)  # Default to OPEN if unknown
+
 
             # Spread creation times over the past 30 days
             created_at = now - timedelta(days=random.randint(0, 30), hours=random.randint(0, 23))
             # last_updated is at or after created_at
             last_updated = created_at + timedelta(hours=random.randint(0, 72))
 
-            subject = f"Test Ticket {i+1} — {status}"
-            message = f"This is a seeded test ticket number {i+1}. Status: {status}. Department: {department}."
-
+            subject = f"Test Ticket {i+1} — {status_str}"
+            message = f"This is a seeded test ticket number {i+1}. Status: {status_str}. Department: {dept_name}."
             params = {
                 'author': author,
                 'assignee': assignee,
-                'department': department,
+                'department': department_id,
                 'priority': priority,
                 'subject': subject,
                 'message': message,

@@ -1,10 +1,10 @@
 from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
-from sqlalchemy import case, or_
+from sqlalchemy import case, or_, Integer, cast
 from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
 from datetime import datetime
-from web_app.models import Department, Major, Minor, User, Ticket
+from web_app.models import Department, Major, Minor, User, Ticket, TicketStatus
 
 bp = Blueprint('main', __name__)
 
@@ -69,20 +69,34 @@ def submit_ticket():
     
     return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
     
+@bp.route('/api/current_user', methods = ['GET'])
+def current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"message": "User not found"}), HTTPStatus.NOT_FOUND
+
+    return jsonify(user.to_dict()), HTTPStatus.OK
 
 @bp.route('/api/get_tickets', methods = ['GET'])
 def tickets():
     user_id = session.get('user_id')
     if not user_id:
-        return redirect(url_for('main.home'))
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
     current_user = User.query.get(user_id)
 
+    # Order by status priority: OPEN (1) first, then AWAITING_ASSIGNEE (3), then AWAITING_AUTHOR (2), then CLOSED (0)
+    # Cast status to integer since the database column is text type (migration issue)
     status_order = case(
-        (Ticket.status == 1, 1), # OPEN
-        (Ticket.status == 3, 2), # AWAITING_ASSIGNEE
-        (Ticket.status == 2, 3), # AWAITING_AUTHOR
-        (Ticket.status == 0, 4), # CLOSED
+        (cast(Ticket.status, Integer) == 1, 1), # OPEN
+        (cast(Ticket.status, Integer) == 3, 2), # AWAITING_ASSIGNEE
+        (cast(Ticket.status, Integer) == 2, 3), # AWAITING_AUTHOR
+        (cast(Ticket.status, Integer) == 0, 4), # CLOSED
+        else_=5
     )
 
     page = request.args.get("page", 1, type=int)
@@ -91,8 +105,8 @@ def tickets():
     query = Ticket.query
 
     if 'status' in request.args:
-        query = query.filter(Ticket.status == int(request.args['status']))
-
+        query = query.filter(cast(Ticket.status, Integer) == int(request.args['status']))
+        
     if 'department' in request.args:
         query = query.filter(Ticket.department == int(request.args['department']))
 
@@ -127,15 +141,29 @@ def tickets():
     
     if current_user.role in ['advisor', 'admin']: # type:ignore
         # Fetch all tickets from the database
-        pagination = query.order_by(status_order, Ticket.last_updated.desc()).options(joinedload(Ticket.author_user)).paginate(page=page, per_page=per_page)  # type:ignore
+        pagination = query.order_by(status_order, Ticket.last_updated.desc()).options(
+            joinedload(Ticket.author_user),
+            joinedload(Ticket.assignee_user)
+        ).paginate(page=page, per_page=per_page)  # type:ignore
         tickets = pagination.items
     else:
         # Fetch only tickets authored by the student
-        pagination = query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(joinedload(Ticket.author_user)).paginate(page=page, per_page=per_page)  # type:ignore
+        pagination = query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(
+            joinedload(Ticket.author_user),
+            joinedload(Ticket.assignee_user)
+        ).paginate(page=page, per_page=per_page)  # type:ignore
         tickets = pagination.items
 
+    # Enhance ticket data with author and assignee names
+    tickets_data = []
+    for t in tickets:
+        ticket_dict = t.to_dict()
+        ticket_dict['author_name'] = t.author_user.display_name if t.author_user else None  # type:ignore
+        ticket_dict['assignee_name'] = t.assignee_user.display_name if t.assignee_user else None  # type:ignore
+        tickets_data.append(ticket_dict)
+
     response = {
-        "tickets": [t.to_dict() for t in tickets],
+        "tickets": tickets_data,
         "page": pagination.page,
         "per_page": pagination.per_page,
         "total_pages": pagination.pages,
