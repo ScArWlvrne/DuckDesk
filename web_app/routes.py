@@ -175,3 +175,28 @@ def tickets():
     }
    
     return jsonify(response), HTTPStatus.OK
+
+
+@bp.route('/api/ticket_details', methods=['GET'])
+def ticket_details():
+    ticket_id = request.args.get('ticket_id')
+    if not ticket_id:
+        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
+
+    ticket = Ticket.query.filter_by(ticket_id=ticket_id).first()
+    if not ticket:
+        return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
+
+    response = {
+        "author": ticket.author_user.display_name if ticket.author_user else None,
+        "assignee": ticket.assignee_user.display_name if ticket.assignee_user else None,
+        "department": ticket.dept_name.name if ticket.dept_name else None,
+        "priority": ticket.priority,
+        "subject": ticket.subject,
+        "body": ticket.message,
+        "status": TicketStatus(ticket.status).name if ticket.status is not None else None,
+        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+        "last_updated": ticket.last_updated.isoformat() if ticket.last_updated else None
+    }
+
+    return jsonify(response), HTTPStatus.OK
