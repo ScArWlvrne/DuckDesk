@@ -162,3 +162,27 @@ class Ticket(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_updated': self.last_updated.isoformat() if self.last_updated else None
         }
+    
+class Response(db.Model):
+    __tablename__ = "responses"
+
+    response_id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    ticket = db.Column(db.ForeignKey('tickets.ticket_id'))
+
+    def dbwrite(self, commit: bool = True):
+        now = datetime.now(timezone.utc)
+        if not self.created_at:
+            self.created_at = now
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+    
+    def to_dict(self):
+        return {
+            "message": self.message,
+            "created_at": self.created_at,
+            "ticket": self.ticket
+        }
