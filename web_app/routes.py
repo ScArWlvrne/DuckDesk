@@ -1,3 +1,5 @@
+from distutils import dep_util
+from email import message
 from email.policy import HTTP
 from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
@@ -5,7 +7,8 @@ from sqlalchemy import case, or_, Integer, cast, asc
 from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
 from datetime import datetime
-from web_app.models import Department, Major, Minor, User, Ticket, TicketStatus, Response
+from time import sleep
+from web_app.models import Department, Major, Minor, User, Ticket, ArchivedTicket, TicketStatus, Response
 
 bp = Blueprint('main', __name__)
 
@@ -70,7 +73,7 @@ def submit_ticket():
     
     return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
 
-@bp.route('/api/update_ticket', methods = 'POST')
+@bp.route('/api/update_ticket', methods = ['POST'])
 def update_ticket():
     user_id = session.get('user_id')
     data = request.get_json()
@@ -309,3 +312,52 @@ def create_response():
         return jsonify({"message": "Error committing ticket response to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
     
     return jsonify({"message": "response successfully submitted"}), HTTPStatus.CREATED
+
+@bp.route('/api/archive_ticket', methods=['POST'])
+def archive_ticket():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    current_user = User.query.get(user_id)
+
+    if not current_user or current_user.role not in ['advisor', 'admin']:
+        return jsonify({"error": "Not authorized to archive tickets"}), HTTPStatus.UNAUTHORIZED
+    
+    ticket_id = request.args.get("ticket_id")
+    if not ticket_id:
+        return jsonify({"error": "ticket does not exist"}), HTTPStatus.BAD_REQUEST
+
+    old_ticket: Ticket | None = Ticket.query.get(ticket_id)
+    if not old_ticket:
+        return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
+    
+
+    author = old_ticket.author
+    assignee = old_ticket.assignee
+    department = old_ticket.department
+    priority = old_ticket.priority
+    subject = old_ticket.subject
+    message = old_ticket.message
+    status = old_ticket.status
+    created_at = old_ticket.created_at
+    last_updated = old_ticket.last_updated
+
+    new_ticket = ArchivedTicket(ticket_id=ticket_id, author=author, assignee=assignee, department=department, priority=priority, subject=subject, message=message, status=status, created_at=created_at, last_updated=last_updated)
+
+    try:
+        new_ticket.dbwrite(True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error archiving ticket", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    for i in range(10):
+        try:
+            db.session.delete(old_ticket)
+            db.session.commit()
+            return jsonify({"message": "Ticket archived"}), HTTPStatus.OK
+        except:
+            db.session.rollback()
+            sleep(0.5)
+
+    return jsonify({"error": "Unable to archive ticket"}), HTTPStatus.INTERNAL_SERVER_ERROR
