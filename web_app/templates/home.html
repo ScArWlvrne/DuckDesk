@@ -13,6 +13,6 @@
             <li><a href="{{ url_for('main.login', user_id=user.user_id) }}">{{ user.display_name }}</a></li>
         {% endfor %}
     </ul>
-    <p><a href="{{ url_for('main.tickets') }}">View All Tickets</a></p>
+    <p><a href="{{ url_for('main.get_tickets') }}">View All Tickets</a></p>
 </body>
 </html>

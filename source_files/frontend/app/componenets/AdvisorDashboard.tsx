@@ -1,0 +1,469 @@
+import { useMemo, type ReactNode } from "react";
+import type { ApiTicket } from "../../lib/api";
+import type { FilterState, User } from "../page";
+
+type AdvisorDashboardProps = {
+  user: User;
+  tickets: ApiTicket[];
+  filters: FilterState;
+  loading: boolean;
+  onFilterChange: (updates: Partial<FilterState>) => void;
+  onResetFilters: () => void;
+};
+
+const statusStyles: Record<
+  number,
+  { label: string; className: string; borderClass: string }
+> = {
+  1: {
+    label: "Open",
+    className: "bg-sky-50 text-sky-700",
+    borderClass: "border-sky-100",
+  },
+  2: {
+    label: "Awaiting Student",
+    className: "bg-amber-50 text-amber-700",
+    borderClass: "border-amber-100",
+  },
+  3: {
+    label: "Awaiting Advisor",
+    className: "bg-violet-50 text-violet-700",
+    borderClass: "border-violet-100",
+  },
+  0: {
+    label: "Closed",
+    className: "bg-slate-100 text-slate-700",
+    borderClass: "border-slate-200",
+  },
+};
+
+const priorityStyles: Record<
+  number,
+  { label: string; className: string; borderClass: string }
+> = {
+  3: {
+    label: "High",
+    className: "bg-rose-50 text-rose-700",
+    borderClass: "border-rose-100",
+  },
+  2: {
+    label: "Medium",
+    className: "bg-amber-50 text-amber-700",
+    borderClass: "border-amber-100",
+  },
+  1: {
+    label: "Low",
+    className: "bg-emerald-50 text-emerald-700",
+    borderClass: "border-emerald-100",
+  },
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const StatusPill = ({ status }: { status: number }) => {
+  const style = statusStyles[status] ?? statusStyles[1];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
+    >
+      {style.label}
+    </span>
+  );
+};
+
+const PriorityPill = ({ priority }: { priority: number | null }) => {
+  if (priority === null || priority === undefined) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+        Unset
+      </span>
+    );
+  }
+
+  const style = priorityStyles[priority] ?? priorityStyles[1];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
+    >
+      {style.label}
+    </span>
+  );
+};
+
+const SummaryCard = ({
+  title,
+  value,
+  tone,
+  helper,
+}: {
+  title: string;
+  value: number | string;
+  tone: string;
+  helper?: string;
+}) => (
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      {title}
+    </p>
+    <div className="mt-2 flex items-baseline gap-2">
+      <p className={`text-3xl font-semibold ${tone}`}>{value}</p>
+      {helper ? <span className="text-xs text-slate-500">{helper}</span> : null}
+    </div>
+  </div>
+);
+
+const FilterField = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) => (
+  <label className="block space-y-1">
+    <span className="text-sm font-medium text-slate-700">{label}</span>
+    {children}
+  </label>
+);
+
+const QueueItem = ({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: string;
+}) => (
+  <div className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
+    <p className="text-sm text-slate-700">{label}</p>
+    <span className={`text-base font-semibold ${tone}`}>{value}</span>
+  </div>
+);
+
+export default function AdvisorDashboard({
+  user,
+  tickets,
+  filters,
+  loading,
+  onFilterChange,
+  onResetFilters,
+}: AdvisorDashboardProps) {
+  const sortedTickets = useMemo(
+    () =>
+      [...tickets].sort((a, b) => {
+        const left = new Date(a.last_updated ?? a.created_at ?? "").getTime();
+        const right = new Date(b.last_updated ?? b.created_at ?? "").getTime();
+        return right - left;
+      }),
+    [tickets]
+  );
+
+  const statusCounts = useMemo(
+    () =>
+      tickets.reduce(
+        (acc, ticket) => {
+          if (ticket.status === 0) acc.closed += 1;
+          else if (ticket.status === 1) acc.open += 1;
+          else if (ticket.status === 2) acc.awaitingStudent += 1;
+          else if (ticket.status === 3) acc.awaitingAdvisor += 1;
+          return acc;
+        },
+        { open: 0, awaitingStudent: 0, awaitingAdvisor: 0, closed: 0 }
+      ),
+    [tickets]
+  );
+
+  const assignedToMe = useMemo(() => {
+    if (!user.id) return 0;
+    return tickets.filter((ticket) => ticket.assignee_id === user.id).length;
+  }, [tickets, user.id]);
+
+  const awaitingAdvisor = statusCounts.awaitingAdvisor;
+  const awaitingStudent = statusCounts.awaitingStudent;
+
+  const departmentOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    tickets.forEach((ticket) => {
+      if (!ticket.department) return;
+      const label =
+        ticket.department_name ||
+        (ticket.department ? `Department ${ticket.department}` : "Department");
+      map.set(ticket.department, label);
+    });
+
+    return Array.from(map.entries()).map(([id, label]) => ({
+      value: id.toString(),
+      label,
+    }));
+  }, [tickets]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold text-emerald-700">
+            Advisor Dashboard
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/editTicket"
+            className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+          >
+            New ticket
+          </a>
+          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
+            <div className="h-9 w-9 rounded-full bg-emerald-50 text-center text-base font-semibold text-emerald-700 leading-9">
+              {user.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {user.name}
+              </p>
+              <p className="text-xs uppercase text-slate-500 tracking-wide">
+                {user.role}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          title="Open / New"
+          value={statusCounts.open}
+          tone="text-sky-700"
+        />
+        <SummaryCard
+          title="Awaiting advisor"
+          value={awaitingAdvisor}
+          tone="text-violet-700"
+        />
+        <SummaryCard
+          title="Awaiting student"
+          value={awaitingStudent}
+          tone="text-amber-700"
+        />
+        <SummaryCard
+          title="Closed"
+          value={statusCounts.closed}
+          tone="text-slate-800"
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">Filters</p>
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <FilterField label="Search queue">
+                <input
+                  value={filters.text}
+                  onChange={(event) =>
+                    onFilterChange({ text: event.target.value })
+                  }
+                  placeholder="Subject, requester, message..."
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner shadow-slate-50 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                />
+              </FilterField>
+              <FilterField label="Status">
+                <select
+                  value={filters.status}
+                  onChange={(event) =>
+                    onFilterChange({ status: event.target.value as FilterState["status"] })
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="1">Open</option>
+                  <option value="3">Awaiting advisor</option>
+                  <option value="2">Awaiting student</option>
+                  <option value="0">Closed</option>
+                </select>
+              </FilterField>
+              <FilterField label="Priority">
+                <select
+                  value={filters.priority}
+                  onChange={(event) =>
+                    onFilterChange({
+                      priority: event.target.value as FilterState["priority"],
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                >
+                  <option value="all">All priorities</option>
+                  <option value="3">High</option>
+                  <option value="2">Medium</option>
+                  <option value="1">Low</option>
+                </select>
+              </FilterField>
+              <FilterField label="Department">
+                <select
+                  value={filters.department}
+                  onChange={(event) =>
+                    onFilterChange({
+                      department: event.target.value as FilterState["department"],
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                >
+                  <option value="all">All departments</option>
+                  {departmentOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </FilterField>
+            </div>
+          </div>
+        </aside>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Ticket queue</p>
+              <p className="text-xs text-slate-500">
+                Sorted by most recent activity · {sortedTickets.length} results
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "All", value: "all" },
+                { label: "Open", value: "1" },
+                { label: "Awaiting advisor", value: "3" },
+                { label: "Awaiting student", value: "2" },
+                { label: "Closed", value: "0" },
+              ].map((chip) => {
+                const active = filters.status === chip.value;
+                return (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    onClick={() => onFilterChange({ status: chip.value as FilterState["status"] })}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      active
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-100">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Ticket
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Subject
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Requester
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Assignee
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Department
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Priority
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Updated
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-8 text-center text-sm text-slate-500"
+                      >
+                        Loading queue...
+                      </td>
+                    </tr>
+                  ) : sortedTickets.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-8 text-center text-sm text-slate-500"
+                      >
+                        No tickets match the current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedTickets.map((ticket) => (
+                      <tr key={ticket.ticket_id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                          #{ticket.ticket_id}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <div className="max-w-[320px] truncate">{ticket.subject}</div>
+                          <p className="text-xs text-slate-500">
+                            {ticket.message.slice(0, 80)}
+                            {ticket.message.length > 80 ? "…" : ""}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          {ticket.author_name || `User ${ticket.author_id}`}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          {ticket.assignee_name || "Unassigned"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          {ticket.department_name ||
+                            (ticket.department
+                              ? `Department ${ticket.department}`
+                              : "—")}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <PriorityPill priority={ticket.priority} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-800">
+                          <StatusPill status={ticket.status} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-700">
+                          {formatDate(ticket.last_updated)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}

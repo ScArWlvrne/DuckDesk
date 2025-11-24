@@ -1,4 +1,4 @@
-import { User } from "../page";
+import type { User } from "../page";
 
 export default function Navigate({user, newticket}: {user: User, newticket: boolean}) {
     const role = user.role;

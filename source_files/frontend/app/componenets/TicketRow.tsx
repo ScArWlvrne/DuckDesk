@@ -1,4 +1,4 @@
-import { Ticket } from "../page";
+import type { Ticket } from "../page";
 
 function Frame1({ ticket }: { ticket: Ticket }) {
   return (

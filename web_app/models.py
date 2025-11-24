@@ -179,8 +179,9 @@ class ArchivedTicket(db.Model):
     last_updated = db.Column(db.DateTime)
 
     # Relationships
-    author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
-    assignee_user = db.relationship('User', foreign_keys=[assignee], backref='assigned_tickets')
+    # Use distinct backref names to avoid clashing with the active tickets relationships on User
+    author_user = db.relationship('User', foreign_keys=[author], backref='archived_authored_tickets')
+    assignee_user = db.relationship('User', foreign_keys=[assignee], backref='archived_assigned_tickets')
     dept_name = db.relationship("Department", foreign_keys=[department])
 
     
