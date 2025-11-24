@@ -129,8 +129,8 @@ class Ticket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
-    last_updated = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    last_updated = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
@@ -168,7 +168,7 @@ class Response(db.Model):
 
     response_id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     ticket = db.Column(db.ForeignKey('tickets.ticket_id'))
 
     def dbwrite(self, commit: bool = True):
