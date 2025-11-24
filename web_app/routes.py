@@ -1,10 +1,11 @@
+from email.policy import HTTP
 from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
-from sqlalchemy import case, or_, Integer, cast
+from sqlalchemy import case, or_, Integer, cast, asc
 from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
 from datetime import datetime
-from web_app.models import Department, Major, Minor, User, Ticket, TicketStatus
+from web_app.models import Department, Major, Minor, User, Ticket, TicketStatus, Response
 
 bp = Blueprint('main', __name__)
 
@@ -34,7 +35,7 @@ def signup():
             return f"User with email {email} already exists.", 400
 
         new_user = User(email=email, display_name=name, role=role) # type:ignore
-        new_user.dbwrite() # now using new dbwrite method
+        new_user.dbwrite(True) # now using new dbwrite method
 
         return redirect(url_for('main.home'))  # go back to homepage after signing up
 
@@ -47,7 +48,7 @@ def submit_ticket():
     data = request.get_json()
 
     if not user_id:
-        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+        return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
     author = session.get('user_id')
     department = data.get('department')
@@ -58,16 +59,65 @@ def submit_ticket():
         return jsonify({"message": "Incomplete ticket structure"}), HTTPStatus.BAD_REQUEST
    
    
-    new_ticket = Ticket(author=author, department=department, subject=subject, message=message) # type:ignore
+    new_ticket = Ticket(author=author, department=department, subject=subject, message=message, status=TicketStatus.AWAITING_ASSIGNEE) # type:ignore
     
     try:
-        new_ticket.dbwrite()
+        new_ticket.dbwrite(True)
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "Error committing ticket to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
     
     return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
+
+@bp.route('/api/update_ticket', methods = 'POST')
+def update_ticket():
+    user_id = session.get('user_id')
+    data = request.get_json()
+
+    if not user_id:
+        return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    current_user: User | None = User.query.get(user_id)
+    if not current_user:
+        return jsonify({"error": "Could not find user"}), HTTPStatus.UNAUTHORIZED
+    
+    ticket_id: int = data.get('ticket_id')
+    department: int | None = data.get('department')
+    subject: str | None = data.get('subject')
+    message: str | None = data.get('message')
+    priority: int | None = data.get('priority')
+    status: str | None = data.get('status')
+
+    if not ticket_id:
+        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
+
+    ticket: Ticket | None = Ticket.query.get(ticket_id)
+    if not ticket:
+        return jsonify({"error": "Could not find ticket"}), HTTPStatus.NOT_FOUND
+
+    if ticket.status == TicketStatus.CLOSED and current_user.role not in ['advisor', 'admin']:
+        return jsonify({"error": "Ticket closed; no updates allowed"}), HTTPStatus.UNAUTHORIZED
+
+    if current_user.role not in ['admin', 'advisor'] or current_user != ticket.author_user:
+        return jsonify({"error": "Not authorized to update this ticket"}), HTTPStatus.UNAUTHORIZED
+
+    if current_user.role in ['admin', 'advisor']:
+        if priority: ticket.priority = priority
+        if status: ticket.status = TicketStatus[status.upper()]
+        
+
+    if department: ticket.department = department
+    if message: ticket.message = message
+    if subject: ticket.subject = subject
+
+    try:
+        ticket.dbwrite(True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error committing ticket to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    return jsonify({"message": "Ticket modified successfully", "ticket": ticket.to_dict()}), HTTPStatus.OK
     
 @bp.route('/api/current_user', methods = ['GET'])
 def current_user():
@@ -82,7 +132,7 @@ def current_user():
     return jsonify(user.to_dict()), HTTPStatus.OK
 
 @bp.route('/api/get_tickets', methods = ['GET'])
-def tickets():
+def get_tickets():
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
@@ -179,6 +229,12 @@ def tickets():
 
 @bp.route('/api/ticket_details', methods=['GET'])
 def ticket_details():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    current_user = User.query.get(user_id)
+    
     ticket_id = request.args.get('ticket_id')
     if not ticket_id:
         return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
@@ -186,6 +242,15 @@ def ticket_details():
     ticket = Ticket.query.filter_by(ticket_id=ticket_id).first()
     if not ticket:
         return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
+
+    if current_user.role in ['advisor', 'admin']: # type:ignore
+        pass
+    else:
+        if ticket.author_user.user_id != user_id:
+            return jsonify({"error": "User permissions do not allow viewing this ticket"}), HTTPStatus.UNAUTHORIZED
+
+    responses = Response.query.filter_by(ticket=ticket_id).order_by(asc(Response.created_at)).all()
+    response_list = [r.to_dict() for r in responses]
 
     response = {
         "author": ticket.author_user.display_name if ticket.author_user else None,
@@ -196,7 +261,51 @@ def ticket_details():
         "body": ticket.message,
         "status": TicketStatus(ticket.status).name if ticket.status is not None else None,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-        "last_updated": ticket.last_updated.isoformat() if ticket.last_updated else None
+        "last_updated": ticket.last_updated.isoformat() if ticket.last_updated else None,
+        "responses": response_list
     }
 
     return jsonify(response), HTTPStatus.OK
+
+@bp.route('/api/create_response', methods=['POST'])
+def create_response():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    current_user = User.query.get(user_id)
+    data = request.get_json()
+    # {
+    #     ticket_id: [ticket_id],
+    #     message: [message],
+    # }
+
+    ticket_id = data.get("ticket_id")
+
+    if not ticket_id:
+        return jsonify({"error": "ticket does not exist"}), HTTPStatus.BAD_REQUEST
+
+    ticket: Ticket | None = Ticket.query.get(ticket_id)
+    if not ticket:
+        return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
+
+    if ticket.status == TicketStatus.CLOSED and current_user.role not in ['advisor', 'admin']:
+        return jsonify({"error": "Ticket closed; no updates allowed"}), HTTPStatus.UNAUTHORIZED
+
+    if current_user.role in ['advisor', 'admin']: # type:ignore
+        ticket.status = TicketStatus.AWAITING_AUTHOR
+    elif ticket.author_user.user_id != user_id:
+            return jsonify({"error": "User permissions do not allow responding to this ticket"}), HTTPStatus.UNAUTHORIZED
+    else:
+        ticket.status = TicketStatus.AWAITING_ASSIGNEE
+        
+    new_response = Response(message = data.get("message"), ticket = ticket_id) #type:ignore
+
+    try:
+        new_response.dbwrite(True)
+        ticket.dbwrite(True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error committing ticket response to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+    
+    return jsonify({"message": "response successfully submitted"}), HTTPStatus.CREATED
