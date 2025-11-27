@@ -133,23 +133,77 @@ def test_update_ticket_success(client):
     assert updated.message == "Updated Message"
 
 
-def test_current_user_unauthorized(client):
-    response = client.get('/api/current_user')
+
+
+# --- user_details tests ---
+
+def test_user_details_unauthorized(client):
+    response = client.get('/api/user_details', json={"user_id": 1})
     assert response.status_code == 401
 
+def test_user_details_forbidden_for_student(client):
+    hashed = bcrypt.hashpw(b"a", bcrypt.gensalt())
+    user1 = User(email="u1@test.com", display_name="User1", role="student", password_hash=hashed)
+    user2 = User(email="u2@test.com", display_name="User2", role="student", password_hash=hashed)
+    db.session.add_all([user1, user2])
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess['user_id'] = user1.user_id
+    response = client.get('/api/user_details', json={"user_id": user2.user_id})
+    assert response.status_code == 401
 
-def test_current_user_success(client):
-    hashed = bcrypt.hashpw(b"testpassword", bcrypt.gensalt())
-    user = User(email='cu@test.com', display_name='CU', password_hash=hashed)
+def test_user_details_self_success(client):
+    hashed = bcrypt.hashpw(b"a", bcrypt.gensalt())
+    user = User(email="self@test.com", display_name="Self", role="student", password_hash=hashed)
     db.session.add(user)
     db.session.commit()
     with client.session_transaction() as sess:
         sess['user_id'] = user.user_id
+    response = client.get('/api/user_details', json={"user_id": user.user_id})
+    assert response.status_code == 200
+    assert response.get_json()['email'] == "self@test.com"
 
-    response = client.get('/api/current_user')
+def test_user_details_admin_success(client):
+    hashed = bcrypt.hashpw(b"a", bcrypt.gensalt())
+    admin = User(email="admin@test.com", display_name="Admin", role="admin", password_hash=hashed)
+    stud = User(email="stud@test.com", display_name="Student", role="student", password_hash=hashed)
+    db.session.add_all([admin, stud])
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess['user_id'] = admin.user_id
+    response = client.get('/api/user_details', json={"user_id": stud.user_id})
+    assert response.status_code == 200
+    assert response.get_json()['email'] == "stud@test.com"
+
+# --- get_users tests ---
+
+def test_get_users_unauthorized(client):
+    response = client.get('/api/get_users')
+    assert response.status_code == 401
+
+def test_get_users_forbidden_for_student(client):
+    hashed = bcrypt.hashpw(b"a", bcrypt.gensalt())
+    user = User(email="s@test.com", display_name="Stud", role="student", password_hash=hashed)
+    db.session.add(user)
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess['user_id'] = user.user_id
+    response = client.get('/api/get_users')
+    assert response.status_code == 403
+
+def test_get_users_success_for_admin(client):
+    hashed = bcrypt.hashpw(b"a", bcrypt.gensalt())
+    admin = User(email="a@test.com", display_name="Admin", role="admin", password_hash=hashed)
+    u1 = User(email="u1@test.com", display_name="User1", role="student", password_hash=hashed)
+    u2 = User(email="u2@test.com", display_name="User2", role="advisor", password_hash=hashed)
+    db.session.add_all([admin, u1, u2])
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess['user_id'] = admin.user_id
+    response = client.get('/api/get_users')
     assert response.status_code == 200
     data = response.get_json()
-    assert data['email'] == 'cu@test.com'
+    assert len(data['users']) == 3
 
 
 def test_ticket_details_missing_ticket_id(client):

@@ -194,12 +194,76 @@ def update_ticket():
         return jsonify({"message": "Error committing ticket to database", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
     return jsonify({"message": "Ticket modified successfully", "ticket": ticket.to_dict()}), HTTPStatus.OK
-    
-@bp.route('/api/current_user', methods = ['GET'])
-def current_user():
+
+@bp.route('/api/get_users', methods=['GET'])
+def get_users():
     user_id = session.get('user_id')
     if not user_id:
-        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+        return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+
+    current_user = User.query.get(user_id)
+    if not current_user or current_user.role not in ['advisor', 'admin']:
+        return jsonify({"error": "Not authorized to view users"}), HTTPStatus.FORBIDDEN
+
+    # Pagination params
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+
+    query = User.query
+
+    # Optional filters
+    if 'role' in request.args:
+        query = query.filter(User.role == request.args['role'])
+
+    if 'email' in request.args:
+        query = query.filter(User.email.ilike(f"%{request.args['email']}%"))
+
+    if 'name' in request.args:
+        query = query.filter(User.display_name.ilike(f"%{request.args['name']}%"))
+
+    if 'major_id' in request.args:
+        query = query.filter(User.major_id == int(request.args['major_id']))
+
+    if 'minor_id' in request.args:
+        query = query.filter(User.minor_id == int(request.args['minor_id']))
+
+    if 'department_id' in request.args:
+        query = query.filter(User.department_id == int(request.args['department_id']))
+
+    # Sorting by created_at newest first
+    pagination = query.order_by(User.created_at.desc()).paginate(page=page, per_page=per_page)  # type:ignore
+    users = pagination.items
+
+    users_data = [u.to_dict() for u in users]
+
+    response = {
+        "users": users_data,
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "total_pages": pagination.pages,
+        "total_items": pagination.total,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+        "next_page": pagination.next_num,
+        "prev_page": pagination.prev_num
+    }
+
+    return jsonify(response), HTTPStatus.OK
+ 
+@bp.route('/api/user_details', methods = ['GET'])
+def user_details():
+    data = request.get_json()
+
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user specified"}), HTTPStatus.BAD_REQUEST
+    
+    current_user: User | None = User.query.get(session.get('user_id'))
+
+    if not current_user: return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+
+    if current_user.role not in ['admin', 'advisor'] and user_id != session.get('user_id'):
+        return jsonify({"error": "Not authorized to view user details"}), HTTPStatus.UNAUTHORIZED
     
     user = User.query.get(user_id)
     if not user:
