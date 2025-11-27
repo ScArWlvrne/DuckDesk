@@ -10,6 +10,7 @@ export interface ApiTicket {
   author_id: number;
   assignee_id: number | null;
   department: number;
+  department_name?: string | null;
   priority: number | null;
   subject: string;
   message: string;
@@ -140,4 +141,3 @@ export async function getCurrentUser(): Promise<ApiUser | null> {
     return null;
   }
 }
-

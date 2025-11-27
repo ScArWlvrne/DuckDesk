@@ -43,14 +43,14 @@ USERS = [
 TICKET_STATUSES = ["open", "in progress", "closed"]
 DEPARTMENTS = ["Tykeson", "Computer Science", "Financial Aid", "Housing"]
 
-# INSERT_DEPARTMENT_SQL = text(
-#     """
-#     INSERT INTO departments (name, display_name)
-#     VALUES (:name, :display_name)
-#     ON CONFLICT (name) DO NOTHING
-#     RETURNING department_id
-#     """
-# )  Note: display_name column was removed from departments table
+INSERT_DEPARTMENT_SQL = text(
+    """
+    INSERT INTO departments (name, display_name)
+    VALUES (:name, :display_name)
+    ON CONFLICT (name) DO NOTHING
+    RETURNING department_id
+    """
+)
 
 
 INSERT_MAJOR_SQL = text(
@@ -124,10 +124,10 @@ def seed_academics(conn):
         
         try:
             # try to insert 
-            result = conn.execute(
-                text("INSERT INTO departments (name) VALUES (:name) ON CONFLICT (name) DO NOTHING RETURNING department_id"),
-                {'name': name}
-            )
+            result = conn.execute(INSERT_DEPARTMENT_SQL, {
+                'name': name,
+                'display_name': display_name
+            })
             row_data = result.fetchone()
             if row_data:
                 dept_id = row_data[0]
@@ -219,10 +219,10 @@ def main():
         for dept_name in DEPARTMENTS:
             if dept_name not in dept_map:
                 try:
-                    result = conn.execute(
-                        text("INSERT INTO departments (name) VALUES (:name) ON CONFLICT (name) DO NOTHING RETURNING department_id"),
-                        {'name': dept_name}
-                    )
+                    result = conn.execute(INSERT_DEPARTMENT_SQL, {
+                        'name': dept_name,
+                        'display_name': dept_name
+                    })
                     row_data = result.fetchone()
                     if row_data:
                         dept_map[dept_name] = row_data[0]

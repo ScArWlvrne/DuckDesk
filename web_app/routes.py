@@ -280,12 +280,27 @@ def get_tickets():
         ).paginate(page=page, per_page=per_page)  # type:ignore
         tickets = pagination.items
 
-    # Enhance ticket data with author and assignee names
+    # Enhance ticket data with related display names
+    department_ids = {t.department for t in tickets if t.department}
+    department_map = {}
+    if department_ids:
+        depts = Department.query.filter(Department.department_id.in_(department_ids)).all()
+        department_map = {
+            d.department_id: d.display_name or d.name or f"Department {d.department_id}"
+            for d in depts
+        }
+
     tickets_data = []
     for t in tickets:
         ticket_dict = t.to_dict()
         ticket_dict['author_name'] = t.author_user.display_name if t.author_user else None  # type:ignore
         ticket_dict['assignee_name'] = t.assignee_user.display_name if t.assignee_user else None  # type:ignore
+        ticket_dict['department_name'] = (
+            (t.dept_name.display_name if t.dept_name and t.dept_name.display_name else None)
+            or (t.dept_name.name if t.dept_name and t.dept_name.name else None)
+            or department_map.get(t.department)
+            or (f"Department {t.department}" if t.department else None)
+        )
         tickets_data.append(ticket_dict)
 
     response = {

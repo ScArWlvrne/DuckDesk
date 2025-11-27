@@ -1,4 +1,4 @@
-import { Ticket } from "../page";
+import type { Ticket } from "../page";
 import TicketRow from "./TicketRow";
 
 function TextContentHeading({ title }: { title: string }) {
