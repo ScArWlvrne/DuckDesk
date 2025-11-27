@@ -350,7 +350,11 @@ def get_tickets():
     if department_ids:
         depts = Department.query.filter(Department.department_id.in_(department_ids)).all()
         department_map = {
-            d.department_id: d.display_name or d.name or f"Department {d.department_id}"
+            d.department_id: (
+                getattr(d, "display_name", None)
+                or getattr(d, "name", None)
+                or f"Department {d.department_id}"
+            )
             for d in depts
         }
 
@@ -360,8 +364,8 @@ def get_tickets():
         ticket_dict['author_name'] = t.author_user.display_name if t.author_user else None  # type:ignore
         ticket_dict['assignee_name'] = t.assignee_user.display_name if t.assignee_user else None  # type:ignore
         ticket_dict['department_name'] = (
-            (t.dept_name.display_name if t.dept_name and t.dept_name.display_name else None)
-            or (t.dept_name.name if t.dept_name and t.dept_name.name else None)
+            (getattr(t.dept_name, "display_name", None) if t.dept_name else None)
+            or (getattr(t.dept_name, "name", None) if t.dept_name else None)
             or department_map.get(t.department)
             or (f"Department {t.department}" if t.department else None)
         )
