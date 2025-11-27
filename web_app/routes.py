@@ -6,44 +6,114 @@ from flask import Blueprint, Flask, jsonify, request, render_template, redirect,
 from sqlalchemy import case, or_, Integer, cast, asc
 from sqlalchemy.orm import joinedload, aliased
 from web_app.app import db
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
-from web_app.models import Department, Major, Minor, User, Ticket, ArchivedTicket, TicketStatus, Response
+from web_app.models import ArchivedResponse, Department, Major, Minor, User, PendingUser, Ticket, ArchivedTicket, TicketStatus, Response
+import os
+import resend
+import secrets
+import string
+import bcrypt
 
 bp = Blueprint('main', __name__)
+resend.api_key = os.getenv("RESEND_API_KEY")
 
-@bp.route('/')
-def home():
-    # For now, just show users to confirm connection
-    users = User.query.all()
-    return render_template('home.html', users=users)
+@bp.route('/api/login', methods=['POST']) 
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    input_pw = data.get('password')
 
-@bp.route('/login/<int:user_id>')
-def login(user_id):
-    session['user_id'] = user_id
-    return redirect(url_for('main.submit_ticket'))
+    if not email or not input_pw: return jsonify({"error": "Email and password required"}), HTTPStatus.BAD_REQUEST
+    
+    user: User | None = User.query.filter_by(email=email).first()
+    if not user or not bcrypt.checkpw(input_pw.encode('utf-8'), user.password_hash): return jsonify({"error": "Incorrect email or password"}), HTTPStatus.BAD_REQUEST
+    
+    session['user_id'] = user.user_id
 
-@bp.route('/signup', methods=['GET', 'POST'])
+    return jsonify({"message": "User logged in"}), HTTPStatus.OK
+
+@bp.route('/api/signup', methods=['POST']) 
 def signup():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        name = request.form.get('name')
-        role = request.form.get('role', 'student')
+    data = request.get_json()
 
-        if not email or not name:
-            return "Error: Email and name are required.", 400
+    email = data.get('email')
+    name = data.get('name')
+    role = data.get('role', 'student')
+    password = data.get('password')
 
-        existing = User.query.filter_by(email=email).first()
-        if existing:
-            return f"User with email {email} already exists.", 400
+    if not email or not name or not password:
+        return "Error: Email, name, and password are required.", HTTPStatus.BAD_REQUEST
 
-        new_user = User(email=email, display_name=name, role=role) # type:ignore
-        new_user.dbwrite(True) # now using new dbwrite method
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        return f"User with email {email} already exists.", HTTPStatus.BAD_REQUEST
+    
+    try:
+        alphabet = string.ascii_uppercase + string.digits
+        code = ''.join(secrets.choice(alphabet) for _ in range(5))
+        params = {
+            "from": "DuckDesk <no-reply@duckdesk.org>",
+            "to": f"{email}",
+            "subject": "DuckDesk Email Verification",
+            "html": f"<p>Thank you for signing up for DuckDesk! Your verification code is: <strong>{code}</strong>.</p>",
+        }
 
-        return redirect(url_for('main.home'))  # go back to homepage after signing up
+        resend.Emails.send(params)
+    
+    except Exception as e:
+        return jsonify({"message": "Unable to send email", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
-    # If it's a GET request, show the signup form
-    return render_template('signup.html')
+    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+    pending = PendingUser(email=email,
+                            display_name=name,
+                            role=role,
+                            password_hash=hashed_pw,
+                            verification_code=code,
+                            expires_at=datetime.utcnow() + timedelta(minutes=10)
+                        )
+
+    db.session.add(pending)
+    db.session.commit()
+
+    return jsonify({"message": "Verification email sent"}), HTTPStatus.OK 
+
+@bp.route('/api/verify/<string:email>', methods=['POST'])
+def verify(email):
+    data = request.get_json()
+    
+    code = data.get('code')
+
+    pending = PendingUser.query.filter_by(email=email).first()
+    if not pending:
+        return "No pending signup found", 404
+
+    if datetime.utcnow() > pending.expires_at:
+        db.session.delete(pending)
+        db.session.commit()
+        return "Verification code expired", 400
+
+    if pending.verification_code != code:
+        return "Incorrect verification code", 400
+
+    # Create real user
+    user = User(
+        email=pending.email,
+        display_name=pending.display_name,
+        role=pending.role,
+        password_hash=pending.password_hash
+    )
+    db.session.add(user)
+
+    # Remove pending entry
+    db.session.delete(pending)
+    db.session.commit()
+
+    # Log them in
+    session['user_id'] = user.user_id
+
+    return jsonify({"message": "New user successfuly created"}), HTTPStatus.CREATED
 
 @bp.route('/api/submit_ticket', methods=['POST'])
 def submit_ticket():
@@ -57,12 +127,13 @@ def submit_ticket():
     department = data.get('department')
     subject = data.get('subject')
     message = data.get('message')
+    assignee = data.get('assignee')
 
     if not all([department, subject, message]):
         return jsonify({"message": "Incomplete ticket structure"}), HTTPStatus.BAD_REQUEST
    
    
-    new_ticket = Ticket(author=author, department=department, subject=subject, message=message, status=TicketStatus.AWAITING_ASSIGNEE) # type:ignore
+    new_ticket = Ticket(author=author, department=department, subject=subject, message=message, status=TicketStatus.AWAITING_ASSIGNEE, assignee=assignee) # type:ignore
     
     try:
         new_ticket.dbwrite(True)
@@ -86,6 +157,7 @@ def update_ticket():
         return jsonify({"error": "Could not find user"}), HTTPStatus.UNAUTHORIZED
     
     ticket_id: int = data.get('ticket_id')
+    assignee: str | None = data.get('assignee')
     department: int | None = data.get('department')
     subject: str | None = data.get('subject')
     message: str | None = data.get('message')
@@ -102,7 +174,7 @@ def update_ticket():
     if ticket.status == TicketStatus.CLOSED and current_user.role not in ['advisor', 'admin']:
         return jsonify({"error": "Ticket closed; no updates allowed"}), HTTPStatus.UNAUTHORIZED
 
-    if current_user.role not in ['admin', 'advisor'] or current_user != ticket.author_user:
+    if current_user.role not in ['admin', 'advisor'] and current_user != ticket.author_user:
         return jsonify({"error": "Not authorized to update this ticket"}), HTTPStatus.UNAUTHORIZED
 
     if current_user.role in ['admin', 'advisor']:
@@ -113,6 +185,7 @@ def update_ticket():
     if department: ticket.department = department
     if message: ticket.message = message
     if subject: ticket.subject = subject
+    if assignee: ticket.assignee = assignee
 
     try:
         ticket.dbwrite(True)
@@ -229,18 +302,115 @@ def get_tickets():
    
     return jsonify(response), HTTPStatus.OK
 
+@bp.route('/api/get_archived_tickets', methods=['GET'])
+def get_archived_tickets():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+
+    current_user = User.query.get(user_id)
+
+    # Status ordering identical to active version
+    status_order = case(
+        (cast(ArchivedTicket.status, Integer) == 1, 1),
+        (cast(ArchivedTicket.status, Integer) == 3, 2),
+        (cast(ArchivedTicket.status, Integer) == 2, 3),
+        (cast(ArchivedTicket.status, Integer) == 0, 4),
+        else_=5
+    )
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+
+    query = ArchivedTicket.query
+
+    # Filter matches active version
+    if 'status' in request.args:
+        query = query.filter(cast(ArchivedTicket.status, Integer) == int(request.args['status']))
+
+    if 'department' in request.args:
+        query = query.filter(ArchivedTicket.department == int(request.args['department']))
+
+    if 'priority' in request.args:
+        query = query.filter(ArchivedTicket.priority == int(request.args['priority']))
+
+    if 'created' in request.args:
+        created = datetime.strptime(request.args['created'], "%Y-%m-%d")
+        query = query.filter(ArchivedTicket.created_at == created)
+
+    if 'updated' in request.args:
+        updated = datetime.strptime(request.args['updated'], "%Y-%m-%d")
+        query = query.filter(ArchivedTicket.last_updated == updated)
+
+    if 'text' in request.args:
+        search_term = request.args['text']
+        terms = search_term.split()
+
+        author_alias = aliased(User)
+        assignee_alias = aliased(User)
+
+        query = query.join(author_alias, ArchivedTicket.author_user)
+        query = query.join(assignee_alias, ArchivedTicket.assignee_user)
+
+        query = query.filter(
+            or_(
+                *[ArchivedTicket.subject.ilike(f"%{term}%") for term in terms],
+                *[ArchivedTicket.message.ilike(f"%{term}%") for term in terms],
+                author_alias.display_name.ilike(f"%{search_term}%"),
+                assignee_alias.display_name.ilike(f"%{search_term}%"),
+            )
+        )
+
+    # Advisors and admins can see all, students only their own
+    if current_user.role in ['advisor', 'admin']:
+        pagination = query.order_by(status_order, ArchivedTicket.last_updated.desc()).options(
+            joinedload(ArchivedTicket.author_user),
+            joinedload(ArchivedTicket.assignee_user)
+        ).paginate(page=page, per_page=per_page)
+        tickets = pagination.items
+    else:
+        pagination = query.order_by(status_order, ArchivedTicket.last_updated.desc()).filter_by(author=user_id).options(
+            joinedload(ArchivedTicket.author_user),
+            joinedload(ArchivedTicket.assignee_user)
+        ).paginate(page=page, per_page=per_page)
+        tickets = pagination.items
+
+    # Format output identical to non-archived version
+    tickets_data = []
+    for t in tickets:
+        ticket_dict = t.to_dict()
+        ticket_dict["author_name"] = t.author_user.display_name if t.author_user else None
+        ticket_dict["assignee_name"] = t.assignee_user.display_name if t.assignee_user else None
+        tickets_data.append(ticket_dict)
+
+    response = {
+        "tickets": tickets_data,
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "total_pages": pagination.pages,
+        "total_items": pagination.total,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+        "next_page": pagination.next_num,
+        "prev_page": pagination.prev_num,
+    }
+
+    return jsonify(response), HTTPStatus.OK
+
 
 @bp.route('/api/ticket_details', methods=['GET'])
 def ticket_details():
+    
+    
+    ticket_id = request.args.get('ticket_id')
+    if not ticket_id:
+        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
+    
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
     current_user = User.query.get(user_id)
-    
-    ticket_id = request.args.get('ticket_id')
-    if not ticket_id:
-        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
 
     ticket = Ticket.query.filter_by(ticket_id=ticket_id).first()
     if not ticket:
@@ -270,13 +440,55 @@ def ticket_details():
 
     return jsonify(response), HTTPStatus.OK
 
+@bp.route('/api/archived_ticket_details', methods=['GET'])
+def archived_ticket_details():
+    ticket_id = request.args.get('ticket_id')
+    if not ticket_id:
+        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+
+    current_user = User.query.get(user_id)
+
+    ticket = ArchivedTicket.query.filter_by(ticket_id=ticket_id).first()
+    if not ticket:
+        return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
+
+    # Students can only see their own archived tickets
+    if current_user.role not in ['advisor', 'admin']:
+        if ticket.author_user.user_id != user_id:
+            return jsonify({"error": "User permissions do not allow viewing this ticket"}), HTTPStatus.UNAUTHORIZED
+
+    responses = ArchivedResponse.query.filter_by(ticket=ticket_id).order_by(asc(ArchivedResponse.created_at)).all()
+    response_list = [r.to_dict() for r in responses]
+
+    response = {
+        "author": ticket.author_user.display_name if ticket.author_user else None,
+        "assignee": ticket.assignee_user.display_name if ticket.assignee_user else None,
+        "department": ticket.dept_name.name if ticket.dept_name else None,
+        "priority": ticket.priority,
+        "subject": ticket.subject,
+        "body": ticket.message,
+        "status": TicketStatus(ticket.status).name if ticket.status is not None else None,
+        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+        "last_updated": ticket.last_updated.isoformat() if ticket.last_updated else None,
+        "responses": response_list
+    }
+
+    return jsonify(response), HTTPStatus.OK
+
 @bp.route('/api/create_response', methods=['POST'])
 def create_response():
     user_id = session.get('user_id')
     if not user_id:
-        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+        return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
-    current_user = User.query.get(user_id)
+    current_user: User | None = User.query.get(user_id)
+    if not current_user:
+        return jsonify({"error": "user not found"}), HTTPStatus.UNAUTHORIZED
+    
     data = request.get_json()
     # {
     #     ticket_id: [ticket_id],
@@ -302,7 +514,7 @@ def create_response():
     else:
         ticket.status = TicketStatus.AWAITING_ASSIGNEE
         
-    new_response = Response(message = data.get("message"), ticket = ticket_id) #type:ignore
+    new_response = Response(message = data.get("message"), ticket = ticket_id, author=current_user.user_id) #type:ignore
 
     try:
         new_response.dbwrite(True)
@@ -316,48 +528,60 @@ def create_response():
 @bp.route('/api/archive_ticket', methods=['POST'])
 def archive_ticket():
     user_id = session.get('user_id')
+    data = request.get_json()
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
     
     current_user = User.query.get(user_id)
-
     if not current_user or current_user.role not in ['advisor', 'admin']:
         return jsonify({"error": "Not authorized to archive tickets"}), HTTPStatus.UNAUTHORIZED
     
-    ticket_id = request.args.get("ticket_id")
+    ticket_id = data.get("ticket_id")
     if not ticket_id:
-        return jsonify({"error": "ticket does not exist"}), HTTPStatus.BAD_REQUEST
+        return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
 
-    old_ticket: Ticket | None = Ticket.query.get(ticket_id)
+    old_ticket = Ticket.query.get(ticket_id)
     if not old_ticket:
         return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
-    
 
-    author = old_ticket.author
-    assignee = old_ticket.assignee
-    department = old_ticket.department
-    priority = old_ticket.priority
-    subject = old_ticket.subject
-    message = old_ticket.message
-    status = old_ticket.status
-    created_at = old_ticket.created_at
-    last_updated = old_ticket.last_updated
-
-    new_ticket = ArchivedTicket(ticket_id=ticket_id, author=author, assignee=assignee, department=department, priority=priority, subject=subject, message=message, status=status, created_at=created_at, last_updated=last_updated)
+    responses = Response.query.filter_by(ticket=ticket_id).all()
 
     try:
-        new_ticket.dbwrite(True)
+        # Create archived ticket
+        new_ticket = ArchivedTicket(
+            author=old_ticket.author,
+            assignee=old_ticket.assignee,
+            department=old_ticket.department,
+            priority=old_ticket.priority,
+            subject=old_ticket.subject,
+            message=old_ticket.message,
+            status=int(old_ticket.status),   # ⭐ ensure integer
+            created_at=old_ticket.created_at,
+            last_updated=old_ticket.last_updated
+        )
+        db.session.add(new_ticket)
+        db.session.flush()  # get new_ticket.ticket_id
+
+        # Archive responses
+        for r in responses:
+            ar = ArchivedResponse(
+                message=r.message,
+                created_at=r.created_at,
+                ticket=new_ticket.ticket_id,
+                author=r.author
+            )
+            db.session.add(ar)
+
+        # Delete active responses and ticket
+        for r in responses:
+            db.session.delete(r)
+        db.session.delete(old_ticket)
+
+        # Final commit
+        db.session.commit()
+
+        return jsonify({"message": "Ticket archived"}), HTTPStatus.OK
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({"message": "Error archiving ticket", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
-
-    for i in range(10):
-        try:
-            db.session.delete(old_ticket)
-            db.session.commit()
-            return jsonify({"message": "Ticket archived"}), HTTPStatus.OK
-        except:
-            db.session.rollback()
-            sleep(0.5)
-
-    return jsonify({"error": "Unable to archive ticket"}), HTTPStatus.INTERNAL_SERVER_ERROR
+        return jsonify({"error": "Unable to archive ticket", "details": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR

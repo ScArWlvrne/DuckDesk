@@ -1,0 +1,195 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.2, pytest-8.4.2, pluggy-1.6.0 -- /Users/kyran/Documents/College/CS422/ATGS/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/kyran/Documents/College/CS422/ATGS/web_app
+collecting ... collected 36 items
+
+tests/test_models.py::test_department_to_dict PASSED                     [  2%]
+tests/test_models.py::test_major_to_dict PASSED                          [  5%]
+tests/test_models.py::test_minor_to_dict PASSED                          [  8%]
+tests/test_models.py::test_user_to_dict PASSED                           [ 11%]
+tests/test_models.py::test_ticket_to_dict PASSED                         [ 13%]
+tests/test_routes.py::test_submit_ticket_unauthorized PASSED             [ 16%]
+tests/test_routes.py::test_submit_ticket_success PASSED                  [ 19%]
+tests/test_routes.py::test_submit_ticket_missing_fields PASSED           [ 22%]
+tests/test_routes.py::test_get_tickets_unauthorized PASSED               [ 25%]
+tests/test_routes.py::test_get_tickets_success PASSED                    [ 27%]
+tests/test_routes.py::test_get_tickets_filters PASSED                    [ 30%]
+tests/test_routes.py::test_update_ticket_unauthorized_no_login PASSED    [ 33%]
+tests/test_routes.py::test_update_ticket_not_found PASSED                [ 36%]
+tests/test_routes.py::test_update_ticket_success PASSED                  [ 38%]
+tests/test_routes.py::test_current_user_unauthorized PASSED              [ 41%]
+tests/test_routes.py::test_current_user_success PASSED                   [ 44%]
+tests/test_routes.py::test_ticket_details_missing_ticket_id PASSED       [ 47%]
+tests/test_routes.py::test_ticket_details_success PASSED                 [ 50%]
+tests/test_routes.py::test_create_response_unauthorized PASSED           [ 52%]
+tests/test_routes.py::test_create_response_success PASSED                [ 55%]
+tests/test_routes.py::test_archive_ticket_unauthorized PASSED            [ 58%]
+tests/test_routes.py::test_archive_ticket_permission_denied PASSED       [ 61%]
+tests/test_routes.py::test_archive_ticket_success FAILED                 [ 63%]
+tests/test_routes.py::test_login_missing_fields PASSED                   [ 66%]
+tests/test_routes.py::test_login_user_not_found PASSED                   [ 69%]
+tests/test_routes.py::test_login_success FAILED                          [ 72%]
+tests/test_routes.py::test_signup_missing_fields PASSED                  [ 75%]
+tests/test_routes.py::test_signup_success PASSED                         [ 77%]
+tests/test_routes.py::test_verify_no_pending_user PASSED                 [ 80%]
+tests/test_routes.py::test_verify_incorrect_code PASSED                  [ 83%]
+tests/test_routes.py::test_verify_success PASSED                         [ 86%]
+tests/test_routes.py::test_get_archived_tickets_unauthorized PASSED      [ 88%]
+tests/test_routes.py::test_get_archived_tickets_success PASSED           [ 91%]
+tests/test_routes.py::test_archived_ticket_details_missing_ticket_id PASSED [ 94%]
+tests/test_routes.py::test_archived_ticket_details_unauthorized PASSED   [ 97%]
+tests/test_routes.py::test_archived_ticket_details_success PASSED        [100%]
+
+=================================== FAILURES ===================================
+_________________________ test_archive_ticket_success __________________________
+
+client = <FlaskClient <Flask 'web_app.app'>>
+
+    def test_archive_ticket_success(client):
+        hashed = bcrypt.hashpw(b"testpassword", bcrypt.gensalt())
+        user = User(email="admin@test.com", display_name="Admin", role="admin", password_hash=hashed)
+        dept = Department(department_id=1, name="Dept")
+        ticket = Ticket(author=1, department=1, subject="Arch", message="Archive me")  # type: ignore
+        db.session.add_all([user, dept, ticket])
+        db.session.commit()
+    
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+    
+        response = client.post(f'/api/archive_ticket?ticket_id={ticket.ticket_id}')
+>       assert response.status_code == 200
+E       assert 500 == 200
+E        +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+
+tests/test_routes.py:231: AssertionError
+______________________________ test_login_success ______________________________
+
+client = <FlaskClient <Flask 'web_app.app'>>
+
+    def test_login_success(client):
+        hashed = bcrypt.hashpw("mypassword".encode('utf-8'), bcrypt.gensalt())
+        user = User(email="login@test.com", display_name="LoginUser", password_hash=hashed)
+        db.session.add(user)
+        db.session.commit()
+    
+>       response = client.post('/api/login', json={
+            "email": "login@test.com",
+            "password": "mypassword"
+        })
+
+tests/test_routes.py:257: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../.venv/lib/python3.11/site-packages/werkzeug/test.py:1167: in post
+    return self.open(*args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/testing.py:235: in open
+    response = super().open(
+../.venv/lib/python3.11/site-packages/werkzeug/test.py:1116: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/werkzeug/test.py:988: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/werkzeug/test.py:1264: in run_wsgi_app
+    app_rv = app(environ, start_response)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:1514: in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask_cors/extension.py:176: in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:919: in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask_cors/extension.py:176: in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+../.venv/lib/python3.11/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @bp.route('/api/login', methods=['POST'])
+    def login():
+        data = request.get_json()
+        email = data.get('email')
+        input_pw = data.get('password')
+    
+        if not email or not input_pw: return jsonify({"error": "Email and password required"}), HTTPStatus.BAD_REQUEST
+    
+        user: User | None = User.query.filter_by(email=email).first()
+>       if not user or not bcrypt.checkpw(input_pw.encode('utf-8'), user.password_hash): return jsonify({"error": "Incorrect email or password"}), HTTPStatus.BAD_REQUEST
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: argument 'hashed_password': 'str' object cannot be converted to 'PyBytes'
+
+routes.py:30: TypeError
+=============================== warnings summary ===============================
+tests/test_routes.py::test_get_tickets_success
+tests/test_routes.py::test_get_tickets_filters
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:216: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user = User.query.get(user_id)
+
+tests/test_routes.py::test_update_ticket_not_found
+tests/test_routes.py::test_update_ticket_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:155: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user: User | None = User.query.get(user_id)
+
+tests/test_routes.py::test_update_ticket_not_found
+tests/test_routes.py::test_update_ticket_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:170: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    ticket: Ticket | None = Ticket.query.get(ticket_id)
+
+tests/test_routes.py::test_update_ticket_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/tests/test_routes.py:131: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    updated = Ticket.query.get(ticket.ticket_id)
+
+tests/test_routes.py::test_current_user_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:204: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_routes.py::test_ticket_details_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:413: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user = User.query.get(user_id)
+
+tests/test_routes.py::test_create_response_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:488: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user: User | None = User.query.get(user_id)
+
+tests/test_routes.py::test_create_response_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:503: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    ticket: Ticket | None = Ticket.query.get(ticket_id)
+
+tests/test_routes.py::test_archive_ticket_permission_denied
+tests/test_routes.py::test_archive_ticket_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:534: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user = User.query.get(user_id)
+
+tests/test_routes.py::test_archive_ticket_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:542: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    old_ticket = Ticket.query.get(ticket_id)
+
+tests/test_routes.py::test_get_archived_tickets_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:311: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user = User.query.get(user_id)
+
+tests/test_routes.py::test_archived_ticket_details_success
+  /Users/kyran/Documents/College/CS422/ATGS/web_app/routes.py:453: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_user = User.query.get(user_id)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_routes.py::test_archive_ticket_success - assert 500 == 200
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_routes.py::test_login_success - TypeError: argument 'hashed_password': 'str' object cannot be converted to 'PyBytes'
+================== 2 failed, 34 passed, 16 warnings in 9.22s ===================

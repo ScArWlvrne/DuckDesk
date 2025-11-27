@@ -6,3 +6,5 @@ flask-migrate
 python-dotenv
 flask-cors
 npm
+resend
+bcrypt
