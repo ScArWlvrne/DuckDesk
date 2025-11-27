@@ -18,7 +18,6 @@ class Department(db.Model):
 
     department_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    display_name = db.Column(db.String(100), nullable=False)
 
     def dbwrite(self, commit: bool = True):
         db.session.add(self)
@@ -29,8 +28,7 @@ class Department(db.Model):
     def to_dict(self):
         return {
             'department_id': self.department_id,
-            'name': self.name,
-            'display_name': self.display_name,
+            'name': self.name
         }
 
 class Major(db.Model):
@@ -89,6 +87,7 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     display_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), default='student')
+    password_hash = db.Column(db.LargeBinary, nullable=False)
     created_at = db.Column(db.DateTime)
 
     major_id = db.Column(db.Integer, db.ForeignKey('majors.major_id'))
@@ -115,6 +114,18 @@ class User(db.Model):
             'minor_id': self.minor_id,
             'department_id': self.department_id,
         }
+    
+class PendingUser(db.Model):
+    __tablename__ = "pending_users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String, unique=True, nullable=False)
+    display_name = db.Column(db.String, nullable=False)
+    role = db.Column(db.String, default="student")
+    password_hash = db.Column(db.LargeBinary, nullable=False)
+    verification_code = db.Column(db.String(5), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
 
 # Define ticket model that matches database table
 class Ticket(db.Model):
@@ -179,7 +190,6 @@ class ArchivedTicket(db.Model):
     last_updated = db.Column(db.DateTime)
 
     # Relationships
-    # Use distinct backref names to avoid clashing with the active tickets relationships on User
     author_user = db.relationship('User', foreign_keys=[author], backref='archived_authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='archived_assigned_tickets')
     dept_name = db.relationship("Department", foreign_keys=[department])
@@ -217,6 +227,7 @@ class Response(db.Model):
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     ticket = db.Column(db.ForeignKey('tickets.ticket_id'))
+    author = db.Column(db.ForeignKey('users.user_id'))
 
     def dbwrite(self, commit: bool = True):
         now = datetime.now(timezone.utc)
@@ -231,5 +242,32 @@ class Response(db.Model):
         return {
             "message": self.message,
             "created_at": self.created_at,
-            "ticket": self.ticket
+            "ticket": self.ticket,
+            "author": self.author
+        }
+    
+class ArchivedResponse(db.Model):
+    __tablename__ = "archived_responses"
+
+    response_id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime)
+    ticket = db.Column(db.ForeignKey('archived_tickets.ticket_id'))
+    author = db.Column(db.ForeignKey('users.user_id'))
+
+    def dbwrite(self, commit: bool = True):
+        now = datetime.now(timezone.utc)
+        if not self.created_at:
+            self.created_at = now
+        db.session.add(self)
+        if commit:
+            db.session.commit()
+        return self
+    
+    def to_dict(self):
+        return {
+            "message": self.message,
+            "created_at": self.created_at,
+            "ticket": self.ticket,
+            "author": self.author
         }

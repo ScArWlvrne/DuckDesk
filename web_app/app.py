@@ -9,8 +9,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from sqlalchemy import case
 from sqlalchemy.orm import joinedload
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
 
 db = SQLAlchemy()
 migrate = Migrate()
