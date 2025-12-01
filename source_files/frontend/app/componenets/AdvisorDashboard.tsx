@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
 
@@ -148,6 +149,16 @@ const QueueItem = ({
   </div>
 );
 
+const formatDepartmentLabel = (label?: string | null, fallback = "-") => {
+  if (!label) return fallback;
+  const spaced = label.replace(/_/g, " ").trim();
+  if (!spaced.length) return fallback;
+  return spaced
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 export default function AdvisorDashboard({
   user,
   tickets,
@@ -156,6 +167,7 @@ export default function AdvisorDashboard({
   onFilterChange,
   onResetFilters,
 }: AdvisorDashboardProps) {
+  const router = useRouter();
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
@@ -193,9 +205,10 @@ export default function AdvisorDashboard({
     const map = new Map<number, string>();
     tickets.forEach((ticket) => {
       if (!ticket.department) return;
-      const label =
+      const label = formatDepartmentLabel(
         ticket.department_name ||
-        (ticket.department ? `Department ${ticket.department}` : "Department");
+          (ticket.department ? `Department ${ticket.department}` : "Department")
+      );
       map.set(ticket.department, label);
     });
 
@@ -400,6 +413,9 @@ export default function AdvisorDashboard({
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Updated
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -423,7 +439,10 @@ export default function AdvisorDashboard({
                     </tr>
                   ) : (
                     sortedTickets.map((ticket) => (
-                      <tr key={ticket.ticket_id} className="hover:bg-slate-50/60">
+                      <tr
+                        key={ticket.ticket_id}
+                        className="hover:bg-slate-50/60"
+                      >
                         <td className="px-4 py-3 text-sm font-semibold text-slate-900">
                           #{ticket.ticket_id}
                         </td>
@@ -441,10 +460,12 @@ export default function AdvisorDashboard({
                           {ticket.assignee_name || "Unassigned"}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-800">
-                          {ticket.department_name ||
-                            (ticket.department
-                              ? `Department ${ticket.department}`
-                              : "—")}
+                          {formatDepartmentLabel(
+                            ticket.department_name ||
+                              (ticket.department
+                                ? `Department ${ticket.department}`
+                                : "-")
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-800">
                           <PriorityPill priority={ticket.priority} />
@@ -454,6 +475,18 @@ export default function AdvisorDashboard({
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
                           {formatDate(ticket.last_updated)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-700">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              router.push(`/ticket?id=${ticket.ticket_id}`);
+                            }}
+                            className="rounded-full border border-[#007030] px-3 py-1 text-xs font-semibold text-[#007030] transition hover:bg-[#007030]/10"
+                          >
+                            Edit
+                          </button>
                         </td>
                       </tr>
                     ))

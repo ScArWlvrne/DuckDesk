@@ -151,13 +151,18 @@ export async function getCurrentUser(): Promise<ApiUser | null> {
 }
 
 export interface TicketDetails {
+  ticket_id: number;
   author: string | null;
+  author_id: number | null;
   assignee: string | null;
+  assignee_id: number | null;
   department: string | null;
+  department_id: number | null;
   priority: number | null;
   subject: string;
   body: string;
   status: string | null;
+  status_code: number | null;
   created_at: string | null;
   last_updated: string | null;
   responses: Array<{
@@ -173,6 +178,65 @@ export interface TicketDetails {
  */
 export async function getTicketDetails(ticketId: string | number): Promise<TicketDetails> {
   return apiRequest<TicketDetails>(`/api/ticket_details?ticket_id=${ticketId}`);
+}
+
+export interface UsersResponse {
+  users: ApiUser[];
+  page: number;
+  per_page: number;
+  total_pages: number;
+  total_items: number;
+  has_next: boolean;
+  has_prev: boolean;
+  next_page: number | null;
+  prev_page: number | null;
+}
+
+/**
+ * Get users (advisors/admins only)
+ */
+export async function getUsers(params?: {
+  role?: string;
+  email?: string;
+  name?: string;
+  major_id?: number;
+  minor_id?: number;
+  department_id?: number;
+  page?: number;
+  per_page?: number;
+}): Promise<UsersResponse> {
+  const queryParams = new URLSearchParams();
+
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value.toString());
+      }
+    });
+  }
+
+  const queryString = queryParams.toString();
+  const endpoint = `/api/get_users${queryString ? `?${queryString}` : ""}`;
+
+  return apiRequest<UsersResponse>(endpoint);
+}
+
+/**
+ * Update an existing ticket
+ */
+export async function updateTicket(data: {
+  ticket_id: number;
+  assignee?: number | null;
+  department?: number | null;
+  subject?: string;
+  message?: string;
+  priority?: number | null;
+  status?: string;
+}): Promise<{ message: string; ticket: ApiTicket }> {
+  return apiRequest<{ message: string; ticket: ApiTicket }>("/api/update_ticket", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export interface Department {

@@ -22,6 +22,16 @@ const formatDate = (value: string | null | undefined, fallback = "—") => {
   return Number.isNaN(date.getTime()) ? fallback : date.toLocaleString();
 };
 
+const formatDepartment = (value: string | null | undefined, fallback = "No department") => {
+  if (!value) return fallback;
+  const spaced = value.replace(/_/g, " ").trim();
+  if (!spaced.length) return fallback;
+  return spaced
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 type InfoCardProps = {
   title: string;
   subtitle: string;
@@ -50,7 +60,7 @@ export default function TestimonialWall({
   const responsibleName = asText(assignee, "Unassigned");
   const lastUpdatedText = formatDate(lastUpdated, "Not updated yet");
   const modifiedByText = asText(modifiedBy ?? assignee ?? requester, "Unknown user");
-  const departmentText = asText(department, "No department");
+  const departmentText = formatDepartment(department);
   const requesterText = asText(requester, "Unknown requester");
   const createdAtText = formatDate(createdAt, "Unknown date");
   const studentNumberText = asText(studentNumber, "Not provided");

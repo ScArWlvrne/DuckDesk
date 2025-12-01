@@ -330,6 +330,15 @@ function Legend() {
   );
 }
 
+const formatDepartmentLabel = (label?: string | null) => {
+  if (!label) return "";
+  const spaced = label.replace(/_/g, " ").trim();
+  return spaced
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 export default function EditForm() {
   const router = useRouter();
   const [subject, setSubject] = useState("");
@@ -382,7 +391,7 @@ export default function EditForm() {
 
   const departmentOptions = departments.map(d => ({
     value: d.department_id,
-    label: d.name
+    label: formatDepartmentLabel(d.name) || `Department ${d.department_id}`
   }));
 
   return (

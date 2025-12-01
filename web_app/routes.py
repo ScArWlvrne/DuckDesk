@@ -529,13 +529,18 @@ def ticket_details():
     response_list = [r.to_dict() for r in responses]
 
     response = {
+        "ticket_id": ticket.ticket_id,
         "author": ticket.author_user.display_name if ticket.author_user else None,
+        "author_id": ticket.author,
         "assignee": ticket.assignee_user.display_name if ticket.assignee_user else None,
+        "assignee_id": ticket.assignee,
         "department": ticket.dept_name.name if ticket.dept_name else None,
+        "department_id": ticket.department,
         "priority": ticket.priority,
         "subject": ticket.subject,
         "body": ticket.message,
         "status": TicketStatus(ticket.status).name if ticket.status is not None else None,
+        "status_code": int(ticket.status) if ticket.status is not None else None,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         "last_updated": ticket.last_updated.isoformat() if ticket.last_updated else None,
         "responses": response_list
