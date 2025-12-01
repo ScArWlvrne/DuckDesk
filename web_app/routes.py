@@ -271,6 +271,23 @@ def user_details():
 
     return jsonify(user.to_dict()), HTTPStatus.OK
 
+@bp.route('/api/current_user', methods=['GET'])
+def current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
+    
+    return jsonify(user.to_dict()), HTTPStatus.OK
+
+@bp.route('/api/departments', methods=['GET'])
+def get_departments():
+    departments = Department.query.all()
+    return jsonify([{"department_id": d.department_id, "name": d.name} for d in departments]), HTTPStatus.OK
+
 @bp.route('/api/get_tickets', methods = ['GET'])
 def get_tickets():
     user_id = session.get('user_id')

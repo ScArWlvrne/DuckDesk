@@ -14,12 +14,18 @@ Written in collaboration with ChatGPT.
 import os
 import csv
 import random
+import bcrypt
 from datetime import datetime, timedelta
 from pathlib import Path
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
 
-# Use container-aware DATABASE_URL when available
-DB_URL = os.getenv('DATABASE_URL', 'postgresql://localhost/atgs')
+# Load environment variables from .env file
+load_dotenv()
+
+# Use container-aware DATABASE_URL when available, fallback to SQLALCHEMY_DATABASE_URI
+# Default to Docker-compatible connection string (uses 'db' hostname)
+DB_URL = os.getenv('DATABASE_URL') or os.getenv('SQLALCHEMY_DATABASE_URI') or 'postgresql://postgres:postgres@db:5432/atgs'
 
 DATA_DIR = Path(__file__).parent / 'data'
 
@@ -40,13 +46,16 @@ USERS = [
     {"email": "student5@test.local", "display_name": "Test Student 5", "role": "student"},
 ]
 
-TICKET_STATUSES = ["open", "in progress", "closed"]
+TICKET_STATUSES = ["open", "awaiting_author", "awaiting_assignee", "closed"]
 DEPARTMENTS = ["Tykeson", "Computer Science", "Financial Aid", "Housing"]
+
+# Default password for all seeded users (for testing purposes)
+DEFAULT_PASSWORD = "password123"
 
 INSERT_DEPARTMENT_SQL = text(
     """
-    INSERT INTO departments (name, display_name)
-    VALUES (:name, :display_name)
+    INSERT INTO departments (name)
+    VALUES (:name)
     ON CONFLICT (name) DO NOTHING
     RETURNING department_id
     """
@@ -73,8 +82,8 @@ INSERT_MINOR_SQL = text(
 
 INSERT_USER_SQL = text(
     """
-    INSERT INTO users (email, display_name, role)
-    VALUES (:email, :display_name, :role)
+    INSERT INTO users (email, display_name, role, password_hash, created_at)
+    VALUES (:email, :display_name, :role, :password_hash, :created_at)
     ON CONFLICT (email) DO NOTHING
     RETURNING user_id, role
     """
@@ -114,19 +123,14 @@ def seed_academics(conn):
     
     for row in dept_rows:
         name = row.get('name', '').strip()
-        display_name = row.get('display_name', '').strip()
         
         if not name:
             continue
-
-        if not display_name:
-            display_name = name
         
         try:
             # try to insert 
             result = conn.execute(INSERT_DEPARTMENT_SQL, {
-                'name': name,
-                'display_name': display_name
+                'name': name
             })
             row_data = result.fetchone()
             if row_data:
@@ -220,8 +224,7 @@ def main():
             if dept_name not in dept_map:
                 try:
                     result = conn.execute(INSERT_DEPARTMENT_SQL, {
-                        'name': dept_name,
-                        'display_name': dept_name
+                        'name': dept_name
                     })
                     row_data = result.fetchone()
                     if row_data:
@@ -251,12 +254,24 @@ def main():
 
         print("Seeding users...")
         inserted_users = 0
+        # Hash the default password once
+        password_hash = bcrypt.hashpw(DEFAULT_PASSWORD.encode('utf-8'), bcrypt.gensalt())
+        now = datetime.utcnow()
+        
         for u in USERS:
-            result = conn.execute(INSERT_USER_SQL, u)
+            user_data = {
+                'email': u['email'],
+                'display_name': u['display_name'],
+                'role': u['role'],
+                'password_hash': password_hash,
+                'created_at': now
+            }
+            result = conn.execute(INSERT_USER_SQL, user_data)
             if result.rowcount and result.rowcount > 0:
                 inserted_users += 1
 
         print(f"Inserted {inserted_users} users (duplicates ignored).")
+        print(f"Note: All seeded users have the default password: '{DEFAULT_PASSWORD}'")
 
         # Fetch advisor and student ids for ticket creation
         advisor_rows = conn.execute(text("SELECT user_id FROM users WHERE role = 'advisor' ORDER BY user_id")).fetchall()
@@ -273,9 +288,10 @@ def main():
         inserted_tickets = 0
 
         status_map = {
-            "open": 1,
-            "in progress": 2,  # or 3, depending on your logic
-            "closed": 0
+            "open": 1,  # TicketStatus.OPEN
+            "awaiting_author": 2,  # TicketStatus.AWAITING_AUTHOR
+            "awaiting_assignee": 3,  # TicketStatus.AWAITING_ASSIGNEE
+            "closed": 0  # TicketStatus.CLOSED
         }
 
         for i in range(10):

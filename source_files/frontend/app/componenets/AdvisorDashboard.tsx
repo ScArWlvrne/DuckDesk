@@ -209,19 +209,19 @@ export default function AdvisorDashboard({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-emerald-700">
+          <h1 className="text-3xl font-semibold text-[#007030]">
             Advisor Dashboard
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <a
             href="/editTicket"
-            className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+            className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
           >
             New ticket
           </a>
           <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
-            <div className="h-9 w-9 rounded-full bg-emerald-50 text-center text-base font-semibold text-emerald-700 leading-9">
+            <div className="h-9 w-9 rounded-full bg-[#007030]/10 text-center text-base font-semibold text-[#007030] leading-9">
               {user.name.slice(0, 1).toUpperCase()}
             </div>
             <div>
@@ -240,22 +240,22 @@ export default function AdvisorDashboard({
         <SummaryCard
           title="Open / New"
           value={statusCounts.open}
-          tone="text-sky-700"
+          tone="text-[#007030]"
         />
         <SummaryCard
           title="Awaiting advisor"
           value={awaitingAdvisor}
-          tone="text-violet-700"
+          tone="text-[#004F6E]"
         />
         <SummaryCard
           title="Awaiting student"
           value={awaitingStudent}
-          tone="text-amber-700"
+          tone="text-[#FEE11A]"
         />
         <SummaryCard
           title="Closed"
           value={statusCounts.closed}
-          tone="text-slate-800"
+          tone="text-[#4D5859]"
         />
       </div>
 
@@ -267,7 +267,7 @@ export default function AdvisorDashboard({
               <button
                 type="button"
                 onClick={onResetFilters}
-                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                className="text-xs font-semibold text-[#007030] hover:text-[#104735]"
               >
                 Reset
               </button>
@@ -280,7 +280,7 @@ export default function AdvisorDashboard({
                     onFilterChange({ text: event.target.value })
                   }
                   placeholder="Subject, requester, message..."
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner shadow-slate-50 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner shadow-slate-50 focus:border-[#007030] focus:outline-none focus:ring-2 focus:ring-[#007030]/20"
                 />
               </FilterField>
               <FilterField label="Status">
@@ -289,7 +289,7 @@ export default function AdvisorDashboard({
                   onChange={(event) =>
                     onFilterChange({ status: event.target.value as FilterState["status"] })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#007030] focus:outline-none focus:ring-2 focus:ring-[#007030]/20"
                 >
                   <option value="all">All statuses</option>
                   <option value="1">Open</option>
@@ -306,7 +306,7 @@ export default function AdvisorDashboard({
                       priority: event.target.value as FilterState["priority"],
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#007030] focus:outline-none focus:ring-2 focus:ring-[#007030]/20"
                 >
                   <option value="all">All priorities</option>
                   <option value="3">High</option>
@@ -322,7 +322,7 @@ export default function AdvisorDashboard({
                       department: event.target.value as FilterState["department"],
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#007030] focus:outline-none focus:ring-2 focus:ring-[#007030]/20"
                 >
                   <option value="all">All departments</option>
                   {departmentOptions.map((option) => (
@@ -360,7 +360,7 @@ export default function AdvisorDashboard({
                     onClick={() => onFilterChange({ status: chip.value as FilterState["status"] })}
                     className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                       active
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        ? "border-[#007030] bg-[#007030]/10 text-[#007030]"
                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                     }`}
                   >

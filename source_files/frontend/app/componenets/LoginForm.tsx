@@ -1,30 +1,44 @@
 "use client";
 
-import {useState, useEffect} from "react";
+import {useState} from "react";
+import { login } from "../../lib/api";
+import { useRouter } from "next/navigation";
 
-function handleSubmit(event: React.FormEvent<HTMLButtonElement>) {
+function handleSubmit(event: React.FormEvent<HTMLFormElement>, email: string, password: string, setError: (error: string | null) => void, router: any) {
   event.preventDefault();
-  //TODO: Handle form submission logic here
+  // Handle form submission logic here
+  login(email, password)
+    .then(() => {
+      // Login successful, redirect to home
+      router.push('/');
+      router.refresh();
+    })
+    .catch((err) => {
+      setError(err instanceof Error ? err.message : "Login failed");
+    });
 }
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   
   function handleEmailChange(event: React.ChangeEvent<HTMLInputElement>) {
-    // 
     setEmail(event.target.value);
+    setError(null);
   }
   
   function handlePasswordChange(event: React.ChangeEvent<HTMLInputElement>) {
     setPassword(event.target.value);
+    setError(null);
   }
   return (
     <>
-      <div className=" bd-black flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+      <div className="bd-black flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
           <img
-            alt="Your Company"
+            alt="University of Oregon"
             src="../favicon.ico"
             className="mx-auto h-10 w-auto"
           />
@@ -32,7 +46,12 @@ export default function LoginForm() {
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form action="#" method="POST" className="space-y-6">
+          <form onSubmit={(e) => handleSubmit(e, email, password, setError, router)} className="space-y-6">
+            {error && (
+              <div className="rounded-md bg-red-50 p-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm/6 font-medium text-black-40">
                 Email address
@@ -45,7 +64,7 @@ export default function LoginForm() {
                   required
                   autoComplete="email"
                   onChange={handleEmailChange}
-                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-gray outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
+                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-[#007030] sm:text-sm/6 border border-gray-300"
                   value={email}
                 />
               </div>
@@ -57,7 +76,7 @@ export default function LoginForm() {
                   Password
                 </label>
                 <div className="text-sm">
-                  <a href="#" className="font-semibold text-indigo-400 hover:text-indigo-300">
+                  <a href="#" className="font-semibold text-[#007030] hover:text-[#104735]">
                     Forgot password?
                   </a>
                 </div>
@@ -70,7 +89,7 @@ export default function LoginForm() {
                   required
                   autoComplete="current-password"
                   onChange={handlePasswordChange}
-                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
+                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-[#007030] sm:text-sm/6 border border-gray-300"
                   value={password}
                 />
               </div>
@@ -79,8 +98,7 @@ export default function LoginForm() {
             <div>
               <button
                 type="submit"
-                onClick={handleSubmit}
-                className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                className="flex w-full justify-center rounded-md bg-[#007030] px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-[#104735] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
               >
                 Sign in
               </button>

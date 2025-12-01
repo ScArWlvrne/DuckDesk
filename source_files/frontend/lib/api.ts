@@ -3,7 +3,7 @@
  */
 
 // API base URL - adjust this based on your environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export interface ApiTicket {
   ticket_id: number;
@@ -123,12 +123,20 @@ export async function submitTicket(data: {
 /**
  * Login a user (sets session cookie)
  */
-export async function login(userId: number): Promise<void> {
-  // Note: This endpoint redirects, so we handle it differently
-  await fetch(`${API_BASE_URL}/login/${userId}`, {
-    method: 'GET',
-    credentials: 'include',
+export async function login(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: 'include', // Include cookies for session management
+    body: JSON.stringify({ email, password })
   });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(error.error || `Login failed: ${res.statusText}`);
+  }
 }
 
 /**
@@ -140,4 +148,41 @@ export async function getCurrentUser(): Promise<ApiUser | null> {
   } catch {
     return null;
   }
+}
+
+export interface TicketDetails {
+  author: string | null;
+  assignee: string | null;
+  department: string | null;
+  priority: number | null;
+  subject: string;
+  body: string;
+  status: string | null;
+  created_at: string | null;
+  last_updated: string | null;
+  responses: Array<{
+    message: string;
+    created_at: string;
+    ticket: number;
+    author: number;
+  }>;
+}
+
+/**
+ * Get ticket details by ID
+ */
+export async function getTicketDetails(ticketId: string | number): Promise<TicketDetails> {
+  return apiRequest<TicketDetails>(`/api/ticket_details?ticket_id=${ticketId}`);
+}
+
+export interface Department {
+  department_id: number;
+  name: string;
+}
+
+/**
+ * Get all departments
+ */
+export async function getDepartments(): Promise<Department[]> {
+  return apiRequest<Department[]>('/api/departments');
 }

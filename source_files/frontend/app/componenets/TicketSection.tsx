@@ -48,7 +48,7 @@ function TicketList({tickets, title}: {tickets: Ticket[]; title: string}) {
 
 function Ts2Tickets({title, tickets}: {title: string; tickets: Ticket[]}) {
   return (
-    <div className="relative rounded-[69px] shrink-0 w-full" data-name="TS 2 tickets" style={{background: "linear-gradient(85.87deg, rgba(82, 76, 139, 0.4489) 6.74%, rgba(22, 20, 37, 0.67) 93.26%)"}}>
+    <div className="relative rounded-[69px] shrink-0 w-full" data-name="TS 2 tickets" style={{background: "linear-gradient(85.87deg, rgba(0, 112, 48, 0.15) 6.74%, rgba(16, 71, 53, 0.25) 93.26%)"}}>
       <div className="flex flex-col items-center justify-center size-full">
         <div className="box-border content-stretch flex flex-col gap-[101px] items-center justify-center px-[33px] py-[23px] relative w-full">
           <TicketList tickets={tickets} title={title} />
@@ -60,9 +60,9 @@ function Ts2Tickets({title, tickets}: {title: string; tickets: Ticket[]}) {
 
 export default function TicketSection({ title, tickets }: { title: string; tickets: Ticket[]; }) {
   return (
-    <div className="backdrop-blur-[2px] backdrop-filter relative size-full" data-name="Ticket Section">
-      <div className="flex flex-col items-center justify-center size-full">
-        <div className="box-border content-stretch flex flex-col items-center justify-center px-[19px] py-[27px] relative ">
+    <div className="relative w-full" data-name="Ticket Section">
+      <div className="flex flex-col items-center justify-center w-full">
+        <div className="box-border content-stretch flex flex-col items-center justify-center px-[19px] py-[27px] relative w-full">
           <Ts2Tickets title={title} tickets={tickets} />
         </div>
       </div>

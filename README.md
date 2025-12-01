@@ -13,7 +13,8 @@ A full-stack application with a Flask backend and Next.js frontend for managing 
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- python
+- brew (linux)
 - Node.js and npm (for frontend development)
 
 ### Backend Setup
@@ -29,16 +30,36 @@ A full-stack application with a Flask backend and Next.js frontend for managing 
    ```
    FLASK_APP=app.py
    FLASK_ENV=development
-   DATABASE_URL=postgresql://postgres:postgres@db:5432/atgs
+   SQLALCHEMY_DATABASE_URI=postgresql://localhost:5432/atgs
+DATABASE_URL=postgresql://localhost:5432/atgs
    POSTGRES_USER=postgres
    POSTGRES_PASSWORD=postgres
    POSTGRES_DB=atgs
    SECRET_KEY=dev-secret-key-change-in-production
    ```
 
-3. **Build and run the containers**:
+3. **download and run the database**:
+   make sure that there are no files in web_app/migrations/versions by running rm -rf migrations/versions/* in web_app/
+   download and install postgresql. You'll need to download brew (linux), 
    ```bash
-   docker-compose up --build
+   brew install postgresql; brew services start postgresql
+   ```
+   verify the server is running
+   ```bash
+   pg_isready
+   ```
+   create the database
+   ```bash
+   createdb atgs
+   ```
+   add the tables in web_app/
+   ```bash
+   flask db migrate
+   flask db upgrade
+   ```
+   add the temp data to the database
+   ```bash
+   python seed.py
    ```
 
 4. **Access the backend**:

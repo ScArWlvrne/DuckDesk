@@ -118,7 +118,7 @@ export default function Home() {
         <div className="text-red-500">
           <p>Error: {error}</p>
           <p className="text-sm mt-2">
-            Make sure the backend is running on http://localhost:5001
+            Make sure the backend is running on http://localhost:5000
           </p>
         </div>
       </div>
@@ -144,21 +144,23 @@ export default function Home() {
 
   return (
     <div
-      className="bg-white relative size-full min-h-screen px-8 py-12"
+      className="bg-white relative size-full min-h-screen px-8"
       data-name="Student view"
     >
       <Navigate user={displayUser} newticket={false} />
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-slate-600">
-          Loading tickets...
-        </div>
-      ) : (
-        <>
-          <TicketSection title="In Process" tickets={grouped.inProcess} />
-          <TicketSection title="New" tickets={grouped.new} />
-          <TicketSection title="closed" tickets={grouped.closed} />
-        </>
-      )}
+      <div className="pt-[120px] pb-12">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-slate-600">
+            Loading tickets...
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            <TicketSection title="In Process" tickets={grouped.inProcess} />
+            <TicketSection title="New" tickets={grouped.new} />
+            <TicketSection title="closed" tickets={grouped.closed} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
