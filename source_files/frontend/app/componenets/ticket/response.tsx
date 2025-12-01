@@ -1,3 +1,4 @@
+'use client';
 import { TicketDetails } from "../../../lib/api";
 
 type Props = {
