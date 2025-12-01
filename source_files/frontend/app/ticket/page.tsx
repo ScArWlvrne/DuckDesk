@@ -1,4 +1,5 @@
 'use client';
+export const ssr = false;
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
