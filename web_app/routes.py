@@ -32,6 +32,14 @@ def login():
 
     return jsonify({"message": "User logged in"}), HTTPStatus.OK
 
+@bp.route('/logout', methods=['POST', 'OPTIONS'])
+def logout():
+    if request.method == "OPTIONS":
+        return "", 204
+    session['user_id'] = None
+
+    return jsonify({"message": "User logged out"}), HTTPStatus.OK
+
 @bp.route('/signup', methods=['POST', 'OPTIONS']) 
 def signup():
     data = request.get_json()
