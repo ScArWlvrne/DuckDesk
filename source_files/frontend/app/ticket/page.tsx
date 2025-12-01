@@ -82,7 +82,6 @@ export default function TicketPage() {
         requester={ticketDetails.author}
         createdAt={ticketDetails.created_at}
         studentNumber={ticketId || undefined}
-        files={[]}
       />
       <Chain responses={ticketDetails.responses} />
     </>
