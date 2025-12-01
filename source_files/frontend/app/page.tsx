@@ -118,7 +118,7 @@ export default function Home() {
         <div className="text-red-500">
           <p>Error: {error}</p>
           <p className="text-sm mt-2">
-            Make sure the backend is running on http://localhost:5000
+            Make sure the backend is running on http://127.0.0.1:5000
           </p>
         </div>
       </div>
