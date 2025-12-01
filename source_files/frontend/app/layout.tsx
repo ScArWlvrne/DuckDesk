@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Academic Ticketing and Graduation System for University of Oregon made by Duck Desk",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
