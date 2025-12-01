@@ -119,6 +119,8 @@ def verify(email):
 
 @bp.route('/submit_ticket', methods=['POST', 'OPTIONS'])
 def submit_ticket():
+    if request.method == "OPTIONS":
+        return "", 204
     user_id = session.get('user_id')
     data = request.get_json()
 
@@ -148,6 +150,8 @@ def submit_ticket():
 
 @bp.route('/update_ticket', methods = ['POST', 'OPTIONS'])
 def update_ticket():
+    if request.method == "OPTIONS":
+        return "", 204
     user_id = session.get('user_id')
     data = request.get_json()
 

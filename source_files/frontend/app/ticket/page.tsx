@@ -74,9 +74,17 @@ export default function TicketPage() {
         status={status} 
       />
       <Description description={ticketDetails.body} />
-      <TestimonialWall />
+      <TestimonialWall
+        assignee={ticketDetails.assignee}
+        lastUpdated={ticketDetails.last_updated}
+        modifiedBy={ticketDetails.assignee || ticketDetails.author}
+        department={ticketDetails.department}
+        requester={ticketDetails.author}
+        createdAt={ticketDetails.created_at}
+        studentNumber={ticketId || undefined}
+        files={[]}
+      />
       <Chain responses={ticketDetails.responses} />
     </>
   );
 }
-
