@@ -3,7 +3,7 @@
  */
 
 // API base URL - adjust this based on your environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
 export interface ApiTicket {
   ticket_id: number;

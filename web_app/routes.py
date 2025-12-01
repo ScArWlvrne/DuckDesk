@@ -15,11 +15,13 @@ import secrets
 import string
 import bcrypt
 
-bp = Blueprint('main', __name__)
+bp = Blueprint('main', __name__, url_prefix="/api")
 resend.api_key = os.getenv("RESEND_API_KEY")
 
-@bp.route('/api/login', methods=['POST']) 
+@bp.route('/login', methods=['POST', 'OPTIONS']) 
 def login():
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json()
     email = data.get('email')
     input_pw = data.get('password')
@@ -33,7 +35,7 @@ def login():
 
     return jsonify({"message": "User logged in"}), HTTPStatus.OK
 
-@bp.route('/api/signup', methods=['POST']) 
+@bp.route('/signup', methods=['POST', 'OPTIONS']) 
 def signup():
     data = request.get_json()
 
@@ -79,7 +81,7 @@ def signup():
 
     return jsonify({"message": "Verification email sent"}), HTTPStatus.OK 
 
-@bp.route('/api/verify/<string:email>', methods=['POST'])
+@bp.route('/verify/<string:email>', methods=['POST', 'OPTIONS'])
 def verify(email):
     data = request.get_json()
     
@@ -87,15 +89,15 @@ def verify(email):
 
     pending = PendingUser.query.filter_by(email=email).first()
     if not pending:
-        return "No pending signup found", 404
+        return "No pending signup found", HTTPStatus.NOT_FOUND
 
     if datetime.utcnow() > pending.expires_at:
         db.session.delete(pending)
         db.session.commit()
-        return "Verification code expired", 400
+        return "Verification code expired", HTTPStatus.BAD_REQUEST
 
     if pending.verification_code != code:
-        return "Incorrect verification code", 400
+        return "Incorrect verification code", HTTPStatus.BAD_REQUEST
 
     # Create real user
     user = User(
@@ -115,7 +117,7 @@ def verify(email):
 
     return jsonify({"message": "New user successfuly created"}), HTTPStatus.CREATED
 
-@bp.route('/api/submit_ticket', methods=['POST'])
+@bp.route('/submit_ticket', methods=['POST', 'OPTIONS'])
 def submit_ticket():
     user_id = session.get('user_id')
     data = request.get_json()
@@ -144,7 +146,7 @@ def submit_ticket():
     
     return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
 
-@bp.route('/api/update_ticket', methods = ['POST'])
+@bp.route('/update_ticket', methods = ['POST', 'OPTIONS'])
 def update_ticket():
     user_id = session.get('user_id')
     data = request.get_json()
@@ -195,7 +197,7 @@ def update_ticket():
 
     return jsonify({"message": "Ticket modified successfully", "ticket": ticket.to_dict()}), HTTPStatus.OK
 
-@bp.route('/api/get_users', methods=['GET'])
+@bp.route('/get_users', methods=['GET'])
 def get_users():
     user_id = session.get('user_id')
     if not user_id:
@@ -250,7 +252,7 @@ def get_users():
 
     return jsonify(response), HTTPStatus.OK
  
-@bp.route('/api/user_details', methods = ['GET'])
+@bp.route('/user_details', methods = ['GET'])
 def user_details():
     data = request.get_json()
 
@@ -271,7 +273,7 @@ def user_details():
 
     return jsonify(user.to_dict()), HTTPStatus.OK
 
-@bp.route('/api/current_user', methods=['GET'])
+@bp.route('/current_user', methods=['GET'])
 def current_user():
     user_id = session.get('user_id')
     if not user_id:
@@ -283,12 +285,12 @@ def current_user():
     
     return jsonify(user.to_dict()), HTTPStatus.OK
 
-@bp.route('/api/departments', methods=['GET'])
+@bp.route('/departments', methods=['GET'])
 def get_departments():
     departments = Department.query.all()
     return jsonify([{"department_id": d.department_id, "name": d.name} for d in departments]), HTTPStatus.OK
 
-@bp.route('/api/get_tickets', methods = ['GET'])
+@bp.route('/get_tickets', methods = ['GET'])
 def get_tickets():
     user_id = session.get('user_id')
     if not user_id:
@@ -402,7 +404,7 @@ def get_tickets():
    
     return jsonify(response), HTTPStatus.OK
 
-@bp.route('/api/get_archived_tickets', methods=['GET'])
+@bp.route('/get_archived_tickets', methods=['GET'])
 def get_archived_tickets():
     user_id = session.get('user_id')
     if not user_id:
@@ -498,7 +500,7 @@ def get_archived_tickets():
     return jsonify(response), HTTPStatus.OK
 
 
-@bp.route('/api/ticket_details', methods=['GET'])
+@bp.route('/ticket_details', methods=['GET'])
 def ticket_details():
     
     
@@ -540,7 +542,7 @@ def ticket_details():
 
     return jsonify(response), HTTPStatus.OK
 
-@bp.route('/api/archived_ticket_details', methods=['GET'])
+@bp.route('/archived_ticket_details', methods=['GET'])
 def archived_ticket_details():
     ticket_id = request.args.get('ticket_id')
     if not ticket_id:
@@ -579,7 +581,7 @@ def archived_ticket_details():
 
     return jsonify(response), HTTPStatus.OK
 
-@bp.route('/api/create_response', methods=['POST'])
+@bp.route('/create_response', methods=['POST', 'OPTIONS'])
 def create_response():
     user_id = session.get('user_id')
     if not user_id:
@@ -625,7 +627,7 @@ def create_response():
     
     return jsonify({"message": "response successfully submitted"}), HTTPStatus.CREATED
 
-@bp.route('/api/archive_ticket', methods=['POST'])
+@bp.route('/archive_ticket', methods=['POST', 'OPTIONS'])
 def archive_ticket():
     user_id = session.get('user_id')
     data = request.get_json()
@@ -685,3 +687,7 @@ def archive_ticket():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Unable to archive ticket", "details": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+    
+@bp.route("/test", methods=['GET'])
+def test():
+    return "This works", 200

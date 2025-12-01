@@ -248,9 +248,9 @@ def main():
         except Exception:
             tickets_count = 0
 
-        if users_count > 0 or tickets_count > 0: # type: ignore
-            print(f"Database not empty (users={users_count}, tickets={tickets_count}) — skipping seed.")
-            return
+        # if users_count > 0 or tickets_count > 0: # type: ignore
+        #     print(f"Database not empty (users={users_count}, tickets={tickets_count}) — skipping seed.")
+        #     return
 
         print("Seeding users...")
         inserted_users = 0
