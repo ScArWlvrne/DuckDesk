@@ -23,13 +23,17 @@ def create_app():
     from web_app.routes import bp as main_bp
 
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
-    print(app.config['SQLALCHEMY_DATABASE_URI'])
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-    app.config['SESSION_COOKIE_SAMESITE'] = "Lax" # DEV ONLY, MUST BE NONE IN PRODUCTION
-    app.config['SESSION_COOKIE_SECURE'] = False  # Must be False for localhost
+    if os.getenv("FLASK_ENV") == "production":
+        app.config['SESSION_COOKIE_SAMESITE'] = "None"
+        app.config['SESSION_COOKIE_SECURE'] = True
+    else:
+        app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
+        app.config['SESSION_COOKIE_SECURE'] = False
+
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     
     CORS(
@@ -38,6 +42,8 @@ def create_app():
     origins=[
         "http://127.0.0.1:3000",
         "http://localhost:3000",
+        "https://duckdesk.org",
+        "https://www.duckdesk.org",
     ],
     )
 
@@ -48,4 +54,5 @@ def create_app():
     return app
 
 if __name__ == '__main__':
-    create_app().run(debug=True, host="0.0.0.0")
+    debug = os.getenv("FLASK_ENV") != "production"
+    create_app().run(debug=debug, host="0.0.0.0")
