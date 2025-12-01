@@ -2,7 +2,7 @@
 
 Created 10/30/25 - Kyran McCown & ChatGPT'''
 
-from web_app.app import db
+from app import db
 from datetime import datetime, UTC
 import enum
 from datetime import datetime, timezone

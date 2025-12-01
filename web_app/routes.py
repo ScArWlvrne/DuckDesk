@@ -5,10 +5,10 @@ from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
 from sqlalchemy import case, or_, Integer, cast, asc
 from sqlalchemy.orm import joinedload, aliased
-from web_app.app import db
+from app import db
 from datetime import datetime, timedelta
 from time import sleep
-from web_app.models import ArchivedResponse, Department, Major, Minor, User, PendingUser, Ticket, ArchivedTicket, TicketStatus, Response
+from models import ArchivedResponse, Department, Major, Minor, User, PendingUser, Ticket, ArchivedTicket, TicketStatus, Response
 import os
 import resend
 import secrets
