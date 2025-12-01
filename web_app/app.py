@@ -19,8 +19,8 @@ migrate = Migrate()
 
 
 def create_app():
-    from models import Department, Major, Minor, User, Ticket
-    from routes import bp as main_bp
+    from .models import Department, Major, Minor, User, Ticket
+    from .routes import bp as main_bp
 
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
