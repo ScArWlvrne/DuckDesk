@@ -1,4 +1,4 @@
-import { TicketDetails } from "../../lib/api";
+import { TicketDetails } from "../../../lib/api";
 
 type Props = {
   responses: TicketDetails["responses"];
