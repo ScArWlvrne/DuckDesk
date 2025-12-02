@@ -404,6 +404,7 @@ export default function EditForm() {
             label="Subject" 
             value={subject} 
             onChange={setSubject}
+            error="Enter a subject"
             valueType="Placeholder" 
             className="content-stretch flex flex-col gap-[8px] items-start relative shrink-0 w-full" 
           />
@@ -412,6 +413,7 @@ export default function EditForm() {
             value={department}
             onChange={setDepartment}
             options={departmentOptions}
+            error="Select a department"
             valueType="Placeholder"
             className="content-stretch flex flex-col gap-[8px] items-start relative shrink-0 w-full" 
           />
@@ -419,6 +421,7 @@ export default function EditForm() {
             label="Description" 
             value={message} 
             onChange={setMessage}
+            error="Enter a brief description"
             valueType="Placeholder" 
             className="content-stretch flex flex-col gap-[8px] items-start relative shrink-0 w-full" 
           />

@@ -643,6 +643,8 @@ def create_response():
 
 @bp.route('/archive_ticket', methods=['POST', 'OPTIONS'])
 def archive_ticket():
+    if request.method == "OPTIONS":
+        return "", 204
     user_id = session.get('user_id')
     data = request.get_json()
     if not user_id:

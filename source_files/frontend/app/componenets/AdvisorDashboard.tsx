@@ -2,14 +2,17 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
+import LogoutButton from "./LogoutButton";
 
 type AdvisorDashboardProps = {
   user: User;
   tickets: ApiTicket[];
   filters: FilterState;
   loading: boolean;
+  viewArchived: boolean;
   onFilterChange: (updates: Partial<FilterState>) => void;
   onResetFilters: () => void;
+  onToggleArchived: (archived: boolean) => void;
 };
 
 const statusStyles: Record<
@@ -164,16 +167,38 @@ export default function AdvisorDashboard({
   tickets,
   filters,
   loading,
+  viewArchived,
   onFilterChange,
   onResetFilters,
+  onToggleArchived,
 }: AdvisorDashboardProps) {
   const router = useRouter();
+  const statusRank: Record<number, number> = {
+    1: 0, // Open
+    3: 1, // Awaiting advisor
+    2: 2, // Awaiting student
+    0: 3, // Closed
+  };
+
+  const getStatusRank = (status: number) => statusRank[status] ?? 4;
+  const getDate = (t: ApiTicket) =>
+    new Date(t.last_updated ?? t.created_at ?? "").getTime();
+  const getPriorityRank = (priority: number | null) =>
+    priority === null || priority === undefined ? -1 : priority;
+
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
-        const left = new Date(a.last_updated ?? a.created_at ?? "").getTime();
-        const right = new Date(b.last_updated ?? b.created_at ?? "").getTime();
-        return right - left;
+        // Status first (Open -> Awaiting advisor -> Awaiting student -> Closed)
+        const statusCompare = getStatusRank(a.status) - getStatusRank(b.status);
+        if (statusCompare !== 0) return statusCompare;
+
+        // Then by least recent to most recent (older first)
+        const dateCompare = getDate(a) - getDate(b);
+        if (dateCompare !== 0) return dateCompare;
+
+        // Finally by priority (High 3 -> Medium 2 -> Low 1 -> unset)
+        return getPriorityRank(b.priority ?? null) - getPriorityRank(a.priority ?? null);
       }),
     [tickets]
   );
@@ -227,6 +252,28 @@ export default function AdvisorDashboard({
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+            {[
+              { label: "Active queue", archived: false },
+              { label: "Archived", archived: true },
+            ].map((item) => {
+              const active = viewArchived === item.archived;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => onToggleArchived(item.archived)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    active
+                      ? "bg-[#007030] text-white shadow"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
           <a
             href="/editTicket"
             className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
@@ -246,6 +293,7 @@ export default function AdvisorDashboard({
               </p>
             </div>
           </div>
+          <LogoutButton />
         </div>
       </div>
 
@@ -352,9 +400,11 @@ export default function AdvisorDashboard({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Ticket queue</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {viewArchived ? "Archived tickets" : "Ticket queue"}
+              </p>
               <p className="text-xs text-slate-500">
-                Sorted by most recent activity · {sortedTickets.length} results
+                Sorted by most recent activity - {sortedTickets.length} results
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -481,11 +531,12 @@ export default function AdvisorDashboard({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              router.push(`/ticket?id=${ticket.ticket_id}`);
+                              const suffix = viewArchived ? "&archived=1" : "";
+                              router.push(`/ticket?id=${ticket.ticket_id}${suffix}`);
                             }}
                             className="rounded-full border border-[#007030] px-3 py-1 text-xs font-semibold text-[#007030] transition hover:bg-[#007030]/10"
                           >
-                            Edit
+                            {viewArchived ? "View" : "Edit"}
                           </button>
                         </td>
                       </tr>

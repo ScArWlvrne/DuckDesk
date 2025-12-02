@@ -4,6 +4,8 @@ import Navigate from "../componenets/Navigate";
 import EditForm from "../componenets/EditTicket"
 import { useState, useEffect } from "react";
 import { getCurrentUser, ApiUser } from "../../lib/api";
+import { useRouter } from "next/navigation";
+import LogoutButton from "../componenets/LogoutButton";
 
 export interface User {
   name: string;
@@ -13,6 +15,7 @@ export interface User {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,7 +52,17 @@ export default function Home() {
   return (
     <div className="bg-white relative size-full min-h-screen px-8" data-name="New Ticket view">
       <Navigate user={displayUser} newticket={true} />
-      <div className="pt-[120px] pb-12">
+      <div className="flex items-center justify-between pt-[120px] pb-4">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+        >
+          ← Back to dashboard
+        </button>
+        <LogoutButton />
+      </div>
+      <div className="pb-12">
         <EditForm />
       </div>
     </div>

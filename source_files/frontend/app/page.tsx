@@ -1,10 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import AdvisorDashboard from "./componenets/AdvisorDashboard";
 import Navigate from "./componenets/Navigate";
 import TicketSection from "./componenets/TicketSection";
-import { getTickets, getCurrentUser, ApiTicket } from "../lib/api";
+import {
+  getTickets,
+  getCurrentUser,
+  ApiTicket,
+  getArchivedTickets,
+} from "../lib/api";
 import { groupTicketsByStatus } from "../lib/ticketMapper";
 
 export interface Ticket {
@@ -39,17 +45,39 @@ const defaultFilters: FilterState = {
 };
 
 export default function Home() {
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [apiTickets, setApiTickets] = useState<ApiTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [viewArchived, setViewArchived] = useState<boolean>(() => {
+    const viewParam = searchParams.get("view");
+    const archivedParam = searchParams.get("archived");
+    return (
+      viewParam === "archived" ||
+      archivedParam === "1" ||
+      archivedParam?.toLowerCase() === "true"
+    );
+  });
 
-  const loadTickets = useCallback(async (activeFilters: FilterState) => {
+  useEffect(() => {
+    const viewParam = searchParams.get("view");
+    const archivedParam = searchParams.get("archived");
+    const shouldShowArchived =
+      viewParam === "archived" ||
+      archivedParam === "1" ||
+      archivedParam?.toLowerCase() === "true";
+    setViewArchived(shouldShowArchived);
+  }, [searchParams]);
+
+  const loadTickets = useCallback(async (activeFilters: FilterState, archived: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | number> = {};
+      const params: Record<string, string | number> = {
+        per_page: 200, // pull a larger slice so all statuses show in the "All" view
+      };
       if (activeFilters.status !== "all") {
         params.status = Number(activeFilters.status);
       }
@@ -62,7 +90,8 @@ export default function Home() {
       if (activeFilters.text.trim()) {
         params.text = activeFilters.text.trim();
       }
-      const ticketsResponse = await getTickets(params);
+      const fetchTickets = archived ? getArchivedTickets : getTickets;
+      const ticketsResponse = await fetchTickets(params);
       setApiTickets(ticketsResponse.tickets);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -73,6 +102,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const initialView = viewArchived;
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -85,7 +115,7 @@ export default function Home() {
             role: apiUser.role as "admin" | "advisor" | "student",
           });
         }
-        await loadTickets(defaultFilters);
+        await loadTickets(defaultFilters, initialView);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
         console.error("Error fetching data:", err);
@@ -100,12 +130,17 @@ export default function Home() {
   const handleFilterChange = (updates: Partial<FilterState>) => {
     const nextFilters = { ...filters, ...updates };
     setFilters(nextFilters);
-    loadTickets(nextFilters);
+    loadTickets(nextFilters, viewArchived);
   };
 
   const resetFilters = () => {
     setFilters(defaultFilters);
-    loadTickets(defaultFilters);
+    loadTickets(defaultFilters, viewArchived);
+  };
+
+  const handleToggleArchivedView = (archived: boolean) => {
+    setViewArchived(archived);
+    loadTickets(filters, archived);
   };
 
   const displayUser: User = user || { name: "Guest", role: "student" };
@@ -133,8 +168,10 @@ export default function Home() {
           tickets={apiTickets}
           filters={filters}
           loading={loading}
+          viewArchived={viewArchived}
           onFilterChange={handleFilterChange}
           onResetFilters={resetFilters}
+          onToggleArchived={handleToggleArchivedView}
         />
       </div>
     );

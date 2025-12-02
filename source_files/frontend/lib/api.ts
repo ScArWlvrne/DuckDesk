@@ -140,6 +140,13 @@ export async function login(email: string, password: string): Promise<void> {
 }
 
 /**
+ * Logout current user
+ */
+export async function logout(): Promise<void> {
+  await apiRequest<{ message: string }>('/api/logout', { method: 'POST' });
+}
+
+/**
  * Get current user from session
  */
 export async function getCurrentUser(): Promise<ApiUser | null> {
@@ -178,6 +185,53 @@ export interface TicketDetails {
  */
 export async function getTicketDetails(ticketId: string | number): Promise<TicketDetails> {
   return apiRequest<TicketDetails>(`/api/ticket_details?ticket_id=${ticketId}`);
+}
+
+export interface ArchivedTicketDetailsResponse {
+  author: string | null;
+  assignee: string | null;
+  department: string | null;
+  priority: number | null;
+  subject: string;
+  body: string;
+  status: string | null;
+  created_at: string | null;
+  last_updated: string | null;
+  responses: Array<{
+    message: string;
+    created_at: string;
+    ticket: number;
+    author: number;
+  }>;
+}
+
+/**
+ * Get archived ticket details by ID
+ */
+export async function getArchivedTicketDetails(
+  ticketId: string | number
+): Promise<TicketDetails> {
+  const data = await apiRequest<ArchivedTicketDetailsResponse>(
+    `/api/archived_ticket_details?ticket_id=${ticketId}`
+  );
+
+  return {
+    ticket_id: Number(ticketId),
+    author: data.author,
+    author_id: null,
+    assignee: data.assignee,
+    assignee_id: null,
+    department: data.department,
+    department_id: null,
+    priority: data.priority,
+    subject: data.subject,
+    body: data.body,
+    status: data.status,
+    status_code: null,
+    created_at: data.created_at,
+    last_updated: data.last_updated,
+    responses: data.responses,
+  };
 }
 
 export interface UsersResponse {
@@ -239,6 +293,16 @@ export async function updateTicket(data: {
   });
 }
 
+/**
+ * Archive an existing ticket (advisors/admins only)
+ */
+export async function archiveTicket(ticket_id: number): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/api/archive_ticket", {
+    method: "POST",
+    body: JSON.stringify({ ticket_id }),
+  });
+}
+
 export interface Department {
   department_id: number;
   name: string;
@@ -249,4 +313,33 @@ export interface Department {
  */
 export async function getDepartments(): Promise<Department[]> {
   return apiRequest<Department[]>('/api/departments');
+}
+
+/**
+ * Get archived tickets with optional filters
+ */
+export async function getArchivedTickets(params?: {
+  page?: number;
+  per_page?: number;
+  status?: number;
+  department?: number;
+  priority?: number;
+  created?: string;
+  updated?: string;
+  text?: string;
+}): Promise<TicketsResponse> {
+  const queryParams = new URLSearchParams();
+  
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value.toString());
+      }
+    });
+  }
+
+  const queryString = queryParams.toString();
+  const endpoint = `/api/get_archived_tickets${queryString ? `?${queryString}` : ''}`;
+  
+  return apiRequest<TicketsResponse>(endpoint);
 }

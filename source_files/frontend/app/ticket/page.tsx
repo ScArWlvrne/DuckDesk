@@ -1,28 +1,32 @@
-'use client';
+"use client";
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   getTicketDetails,
   TicketDetails,
+  getArchivedTicketDetails,
   getCurrentUser,
   ApiUser,
   getDepartments,
   Department,
   getUsers,
   updateTicket,
+  archiveTicket,
 } from "../../lib/api";
 import Header from "../componenets/ticket/header";
 import Description from "../componenets/ticket/description";
 import TestimonialWall from "../componenets/ticket/details";
 import Chain from "../componenets/ticket/response";
+import LogoutButton from "../componenets/LogoutButton";
 
 const statusOptions = [
   { value: "OPEN", label: "Open" },
   { value: "AWAITING_ASSIGNEE", label: "Awaiting advisor" },
   { value: "AWAITING_AUTHOR", label: "Awaiting student" },
   { value: "CLOSED", label: "Closed" },
+  { value: "ARCHIVED", label: "Archived" },
 ];
 
 type EditorProps = {
@@ -30,6 +34,7 @@ type EditorProps = {
   ticket: TicketDetails;
   user: ApiUser;
   onUpdated: () => Promise<void> | void;
+  onArchived?: () => Promise<void> | void;
 };
 
 const formatDepartmentLabel = (label?: string | null) => {
@@ -41,7 +46,7 @@ const formatDepartmentLabel = (label?: string | null) => {
     .join(" ");
 };
 
-function TicketEditor({ ticketId, ticket, user, onUpdated }: EditorProps) {
+function TicketEditor({ ticketId, ticket, user, onUpdated, onArchived }: EditorProps) {
   const initialDepartmentId =
     ticket.department_id ??
     (ticket.department && !Number.isNaN(Number(ticket.department))
@@ -213,6 +218,7 @@ function TicketEditor({ ticketId, ticket, user, onUpdated }: EditorProps) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    const archiveMode = status === "ARCHIVED";
 
     setSaving(true);
     try {
@@ -244,14 +250,28 @@ function TicketEditor({ ticketId, ticket, user, onUpdated }: EditorProps) {
           assigneeId !== "" ? Number(assigneeId) : ticket.assignee_id ?? null;
         payload.assignee = resolvedAssignee;
 
-        payload.status = status || ticket.status || "OPEN";
+        if (!archiveMode) {
+          payload.status = status || ticket.status || "OPEN";
+        }
       }
 
       await updateTicket(payload);
+      if (archiveMode) {
+        await archiveTicket(ticketId);
+        setSuccess("Ticket archived and removed from the active queue.");
+        if (onArchived) {
+          await onArchived();
+        }
+        return;
+      }
+
       setSuccess("Ticket updated successfully.");
       await onUpdated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update ticket");
+      const fallback = archiveMode
+        ? "Failed to archive ticket"
+        : "Failed to update ticket";
+      setError(err instanceof Error ? err.message : fallback);
     } finally {
       setSaving(false);
     }
@@ -410,11 +430,17 @@ function TicketEditor({ ticketId, ticket, user, onUpdated }: EditorProps) {
 
 export default function TicketPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const ticketId = searchParams.get("id");
+  const isArchivedView =
+    searchParams.get("archived") === "1" ||
+    searchParams.get("archived")?.toLowerCase() === "true" ||
+    searchParams.get("view") === "archived";
   const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<ApiUser | null>(null);
+  const backTarget = isArchivedView ? "/?view=archived" : "/";
 
   const fetchTicket = useCallback(async () => {
     if (!ticketId) {
@@ -426,7 +452,9 @@ export default function TicketPage() {
     try {
       setLoading(true);
       setError(null);
-      const details = await getTicketDetails(ticketId);
+      const details = isArchivedView
+        ? await getArchivedTicketDetails(ticketId)
+        : await getTicketDetails(ticketId);
       setTicketDetails(details);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load ticket");
@@ -434,7 +462,7 @@ export default function TicketPage() {
     } finally {
       setLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, isArchivedView]);
 
   useEffect(() => {
     fetchTicket();
@@ -454,6 +482,14 @@ export default function TicketPage() {
 
     fetchUser();
   }, []);
+
+  const handleArchivedRedirect = useCallback(() => {
+    router.push("/?view=archived");
+  }, [router]);
+
+  const handleBack = useCallback(() => {
+    router.push(backTarget);
+  }, [router, backTarget]);
 
   if (loading) {
     return (
@@ -478,6 +514,7 @@ export default function TicketPage() {
     CLOSED: "closed",
     AWAITING_AUTHOR: "awaiting_author",
     AWAITING_ASSIGNEE: "awaiting_assignee",
+    ARCHIVED: "archived",
   };
 
   const status = ticketDetails.status
@@ -490,17 +527,44 @@ export default function TicketPage() {
 
   return (
     <>
+      <div className="flex items-center justify-between px-6 pt-6">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+        >
+          ← Back to dashboard
+        </button>
+        <LogoutButton />
+      </div>
       <Header
         title={ticketDetails.subject}
         ticketId={ticketId || ""}
         status={status}
       />
-      {user ? (
+      {isArchivedView ? (
+        <div className="px-6 pb-8">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+            This ticket has been archived and is read-only. Head back to the archived
+            queue to browse other archived tickets.
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={handleArchivedRedirect}
+                className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                View archived tickets
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : user ? (
         <TicketEditor
           ticketId={numericTicketId as number}
           ticket={ticketDetails}
           user={user}
           onUpdated={fetchTicket}
+          onArchived={handleArchivedRedirect}
         />
       ) : (
         <div className="px-6 pb-8">
