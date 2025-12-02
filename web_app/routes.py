@@ -1,3 +1,39 @@
+# =============================================================================
+# File: routes.py
+# Project: DuckDesk (ATGS University of Oregon Ticketing System)
+# Description:
+#     Defines all REST API endpoints for authentication, ticket management,
+#     user management, messaging, and archival flows. This is the primary
+#     controller layer connecting frontend requests to backend model logic.
+#
+# Creation Date: November 4th
+# Authors: Kyran McCown, ChatGPT
+#
+# Notes:
+#     - All routes are mounted under the "/api" prefix via Flask Blueprint.
+#     - Session-based authentication is used across all endpoints.
+#     - Responses consistently use JSON + HTTPStatus codes.
+# =============================================================================
+
+"""
+DuckDesk API routing module.
+
+This file contains:
+    - Authentication routes (login, logout, signup, verification)
+    - User lookup, filtering, and permission-gated details access
+    - Ticket creation, update, search, filtering, and listing
+    - Response creation for ticket conversations
+    - Ticket archival workflow for secure FERPA-compliant storage
+"""
+
+# ----------------------------- Imports ---------------------------------------
+# HTTPStatus: standardized status codes for API responses.
+# Flask utilities: request handling, JSON responses, session management.
+# SQLAlchemy: filtering, logical OR operations, casting, ordering, and aliasing.
+# joinedload/aliased: eager loading for related user fields to avoid N+1 queries.
+# db: shared SQLAlchemy instance from the application factory.
+# resend: email provider used for signup verification.
+# bcrypt: secure password hashing and comparison.
 from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
 from sqlalchemy import case, or_, Integer, cast, asc
@@ -12,11 +48,27 @@ import secrets
 import string
 import bcrypt
 
+ # Blueprint grouping all API routes under the /api prefix for modular routing.
 bp = Blueprint('main', __name__, url_prefix="/api")
 resend.api_key = os.getenv("RESEND_API_KEY")
 
+# ============================================================================
+#                           Authentication Routes
+# ============================================================================
 @bp.route('/login', methods=['POST', 'OPTIONS']) 
 def login():
+    """
+    Authenticate a user using email and password.
+
+    - Validates request payload
+    - Verifies stored bcrypt password hash
+    - Stores user_id in session on success
+    - Supports OPTIONS requests for CORS preflight
+
+    Returns:
+        200 OK on success,
+        400 BAD REQUEST for invalid credentials or missing fields.
+    """
     if request.method == "OPTIONS":
         return "", 204
     data = request.get_json()
@@ -34,6 +86,12 @@ def login():
 
 @bp.route('/logout', methods=['POST', 'OPTIONS'])
 def logout():
+    """
+    Logs out the current user by clearing the session user_id.
+
+    Returns:
+        200 OK on successful logout.
+    """
     if request.method == "OPTIONS":
         return "", 204
     session['user_id'] = None
@@ -42,6 +100,19 @@ def logout():
 
 @bp.route('/signup', methods=['POST', 'OPTIONS']) 
 def signup():
+    """
+    Begins the signup process.
+
+    - Ensures email, name, and password are provided
+    - Generates a 5‑character verification code
+    - Sends verification email through Resend API
+    - Creates PendingUser record expiring in 10 minutes
+
+    Returns:
+        200 OK if email sent,
+        400 BAD REQUEST for missing fields or existing user,
+        500 INTERNAL SERVER ERROR if email sending fails.
+    """
     data = request.get_json()
 
     email = data.get('email')
@@ -88,6 +159,20 @@ def signup():
 
 @bp.route('/verify/<string:email>', methods=['POST', 'OPTIONS'])
 def verify(email):
+    """
+    Completes account creation by validating a verification code.
+
+    - Looks up PendingUser
+    - Checks expiration timestamp
+    - Validates provided verification code
+    - Creates real User record and removes PendingUser
+    - Logs the new user in
+
+    Returns:
+        201 CREATED on success,
+        400 BAD REQUEST for incorrect code or expired code,
+        404 NOT FOUND if no pending signup exists.
+    """
     data = request.get_json()
     
     code = data.get('code')
@@ -122,8 +207,25 @@ def verify(email):
 
     return jsonify({"message": "New user successfuly created"}), HTTPStatus.CREATED
 
+# ============================================================================
+#                               Ticket Creation
+# ============================================================================
 @bp.route('/submit_ticket', methods=['POST', 'OPTIONS'])
 def submit_ticket():
+    """
+    Creates a new ticket authored by the currently logged‑in user.
+
+    - Requires department, subject, and message
+    - Optionally accepts an assignee
+    - Sets initial ticket status to AWAITING_ASSIGNEE
+    - Commits the ticket to the database using model dbwrite()
+
+    Returns:
+        201 CREATED on success,
+        400 BAD REQUEST for missing fields,
+        401 UNAUTHORIZED if no user session exists,
+        500 INTERNAL SERVER ERROR if commit fails.
+    """
     if request.method == "OPTIONS":
         return "", 204
     user_id = session.get('user_id')
@@ -153,8 +255,32 @@ def submit_ticket():
     
     return jsonify({"message": "Ticket submitted successfully", "ticket": new_ticket.to_dict()}), HTTPStatus.CREATED
 
+# ============================================================================
+#                               Ticket Updating
+# ============================================================================
 @bp.route('/update_ticket', methods = ['POST', 'OPTIONS'])
 def update_ticket():
+    """
+    Updates an existing ticket.
+
+    Permissions:
+        - Students may only edit their own tickets and cannot modify priority or status.
+        - Advisors and admins may update any ticket and may modify priority and status.
+
+    Editable fields:
+        - department
+        - subject
+        - message
+        - assignee
+        - priority (advisor/admin only)
+        - status   (advisor/admin only)
+
+    Returns:
+        200 OK on success,
+        400 BAD REQUEST for missing ticket_id,
+        401 UNAUTHORIZED for lack of permissions,
+        404 NOT FOUND if ticket does not exist.
+    """
     if request.method == "OPTIONS":
         return "", 204
     user_id = session.get('user_id')
@@ -206,8 +332,34 @@ def update_ticket():
 
     return jsonify({"message": "Ticket modified successfully", "ticket": ticket.to_dict()}), HTTPStatus.OK
 
+# ============================================================================
+#                              User Management
+# ============================================================================
 @bp.route('/get_users', methods=['GET'])
 def get_users():
+    """
+    Returns a paginated list of users.
+
+    Permissions:
+        - Only advisors and admins may access this route.
+
+    Supports filtering by:
+        - role
+        - email (partial match)
+        - name (partial match)
+        - major_id
+        - minor_id
+        - department_id
+
+    Pagination:
+        - page (default 1)
+        - per_page (default 20)
+
+    Returns:
+        200 OK with user list and pagination metadata,
+        401 UNAUTHORIZED if not logged in,
+        403 FORBIDDEN if user lacks required role.
+    """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
@@ -263,6 +415,23 @@ def get_users():
  
 @bp.route('/user_details', methods = ['GET'])
 def user_details():
+    """
+    Returns detailed information about a specific user.
+
+    Permissions:
+        - Admins and advisors may view any user.
+        - Students may only view their own details.
+
+    Expects:
+        JSON body containing:
+            user_id: ID of the user to look up
+
+    Returns:
+        200 OK with user data,
+        400 BAD REQUEST if user_id missing,
+        401 UNAUTHORIZED if not logged in or insufficient permissions,
+        404 NOT FOUND if user does not exist.
+    """
     data = request.get_json()
 
     user_id = data.get('user_id')
@@ -284,6 +453,14 @@ def user_details():
 
 @bp.route('/current_user', methods=['GET'])
 def current_user():
+    """
+    Returns the details of the currently logged-in user.
+
+    Returns:
+        200 OK with user details,
+        401 UNAUTHORIZED if no active session,
+        404 NOT FOUND if user record no longer exists.
+    """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED
@@ -294,13 +471,54 @@ def current_user():
     
     return jsonify(user.to_dict()), HTTPStatus.OK
 
+# ============================================================================
+#                              Department Lookup
+# ============================================================================
 @bp.route('/departments', methods=['GET'])
 def get_departments():
+    """
+    Returns a list of all academic departments.
+
+    - No authentication required
+    - Used to populate dropdowns during ticket creation and filtering
+
+    Returns:
+        200 OK with list of {department_id, name}
+    """
     departments = Department.query.all()
     return jsonify([{"department_id": d.department_id, "name": d.name} for d in departments]), HTTPStatus.OK
 
+# ============================================================================
+#                           Ticket Listing & Search
+# ============================================================================
 @bp.route('/get_tickets', methods = ['GET'])
 def get_tickets():
+    """
+    Retrieves a paginated list of active (non‑archived) tickets.
+
+    Permissions:
+        - Advisors/admins see all tickets.
+        - Students only see tickets they authored.
+
+    Supports filtering by:
+        - status
+        - department
+        - priority
+        - created_at date
+        - updated_at date
+        - free‑text search across:
+            • subject
+            • message body
+            • author name
+            • assignee name
+
+    Sorting:
+        - Orders by custom status priority (OPEN → AWAITING_ASSIGNEE → AWAITING_AUTHOR → CLOSED)
+        - Then by last_updated descending
+
+    Returns:
+        Paginated ticket list with enriched metadata (names, department labels).
+    """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
@@ -339,21 +557,28 @@ def get_tickets():
         updated = datetime.strptime(request.args['updated'], "%Y-%m-%d")
         query = query.filter(Ticket.last_updated == updated)
 
-    if 'text' in request.args:
-        search_term = request.args['text']
-        terms = search_term.split()
+    if "text" in request.args:
+        search = request.args["text"].strip()
+        terms = search.split()
 
         author_alias = aliased(User)
         assignee_alias = aliased(User)
 
-        query = query.join(author_alias, Ticket.author_user) # type:ignore
-        query = query.join(assignee_alias, Ticket.assignee_user) # type:ignore
+        # OUTER JOIN so tickets with no assignee/author don't disappear
+        query = query.outerjoin(author_alias, Ticket.author_user)
+        query = query.outerjoin(assignee_alias, Ticket.assignee_user)
+
+        subject_filters = [Ticket.subject.ilike(f"%{t}%") for t in terms]
+        message_filters = [Ticket.message.ilike(f"%{t}%") for t in terms]
+        author_filters  = [author_alias.display_name.ilike(f"%{t}%") for t in terms]
+        assignee_filters = [assignee_alias.display_name.ilike(f"%{t}%") for t in terms]
+
         query = query.filter(
             or_(
-                *[Ticket.subject.ilike(f"%{term}%") for term in terms],
-                *[Ticket.message.ilike(f"%{term}%") for term in terms],
-                author_alias.display_name.ilike(f"%{search_term}%"),
-                assignee_alias.display_name.ilike(f"%{search_term}%"),
+                or_(*subject_filters),
+                or_(*message_filters),
+                or_(*author_filters),
+                or_(*assignee_filters),
             )
         )
     
@@ -413,8 +638,25 @@ def get_tickets():
    
     return jsonify(response), HTTPStatus.OK
 
+# ============================================================================
+#                           Archived Ticket Listing
+# ============================================================================
 @bp.route('/get_archived_tickets', methods=['GET'])
 def get_archived_tickets():
+    """
+    Retrieves archived tickets with filtering identical to active tickets.
+
+    Permissions:
+        - Advisors/admins may view all archived tickets.
+        - Students may only view archived tickets they authored.
+
+    Supports:
+        - Same filters as active tickets
+        - Free‑text search on subject, message, author, assignee
+
+    Returns:
+        Paginated archived ticket data.
+    """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
@@ -460,15 +702,21 @@ def get_archived_tickets():
         author_alias = aliased(User)
         assignee_alias = aliased(User)
 
-        query = query.join(author_alias, ArchivedTicket.author_user)
-        query = query.join(assignee_alias, ArchivedTicket.assignee_user)
+        # OUTER JOIN so tickets with missing author/assignee are still searchable
+        query = query.outerjoin(author_alias, ArchivedTicket.author_user)
+        query = query.outerjoin(assignee_alias, ArchivedTicket.assignee_user)
+
+        subject_filters = [ArchivedTicket.subject.ilike(f"%{t}%") for t in terms]
+        message_filters = [ArchivedTicket.message.ilike(f"%{t}%") for t in terms]
+        author_filters  = [author_alias.display_name.ilike(f"%{t}%") for t in terms]
+        assignee_filters = [assignee_alias.display_name.ilike(f"%{t}%") for t in terms]
 
         query = query.filter(
             or_(
-                *[ArchivedTicket.subject.ilike(f"%{term}%") for term in terms],
-                *[ArchivedTicket.message.ilike(f"%{term}%") for term in terms],
-                author_alias.display_name.ilike(f"%{search_term}%"),
-                assignee_alias.display_name.ilike(f"%{search_term}%"),
+                or_(*subject_filters),
+                or_(*message_filters),
+                or_(*author_filters),
+                or_(*assignee_filters),
             )
         )
 
@@ -508,11 +756,27 @@ def get_archived_tickets():
 
     return jsonify(response), HTTPStatus.OK
 
-
+# ============================================================================
+#                               Ticket Details
+# ============================================================================
 @bp.route('/ticket_details', methods=['GET'])
 def ticket_details():
-    
-    
+    """
+    Returns full details for an active ticket, including threaded responses.
+
+    Permissions:
+        - Advisors and admins may view any ticket.
+        - Students may only view tickets they authored.
+
+    Expects:
+        ticket_id provided via query string (?ticket_id=)
+
+    Returns:
+        200 OK with full ticket structure,
+        400 BAD REQUEST if ticket_id is missing,
+        401 UNAUTHORIZED if user lacks permission,
+        404 NOT FOUND if ticket does not exist.
+    """
     ticket_id = request.args.get('ticket_id')
     if not ticket_id:
         return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
@@ -556,8 +820,27 @@ def ticket_details():
 
     return jsonify(response), HTTPStatus.OK
 
+# ============================================================================
+#                           Archived Ticket Details
+# ============================================================================
 @bp.route('/archived_ticket_details', methods=['GET'])
 def archived_ticket_details():
+    """
+    Returns full details for an archived ticket, including archived responses.
+
+    Permissions:
+        - Advisors and admins may view any archived ticket.
+        - Students may only view archived tickets they authored.
+
+    Expects:
+        ticket_id provided via query string (?ticket_id=)
+
+    Returns:
+        200 OK with archived ticket details,
+        400 BAD REQUEST if ticket_id is missing,
+        401 UNAUTHORIZED if user lacks permission,
+        404 NOT FOUND if ticket does not exist.
+    """
     ticket_id = request.args.get('ticket_id')
     if not ticket_id:
         return jsonify({"error": "ticket_id is required"}), HTTPStatus.BAD_REQUEST
@@ -595,8 +878,29 @@ def archived_ticket_details():
 
     return jsonify(response), HTTPStatus.OK
 
+# ============================================================================
+#                            Ticket Responses
+# ============================================================================
 @bp.route('/create_response', methods=['POST', 'OPTIONS'])
 def create_response():
+    """
+    Creates a response (message) on an active ticket.
+
+    Behavior:
+        - Students responding → ticket status becomes AWAITING_ASSIGNEE.
+        - Advisors/Admins responding → ticket status becomes AWAITING_AUTHOR.
+        - Closed tickets may only be responded to by advisors/admins.
+
+    Expects JSON:
+        ticket_id: ID of the ticket
+        message:   response body text
+
+    Returns:
+        201 CREATED on success,
+        400 BAD REQUEST for missing ticket_id,
+        401 UNAUTHORIZED for insufficient permissions,
+        404 NOT FOUND if ticket does not exist.
+    """
     if request.method == "OPTIONS":
         return "", 204
     user_id = session.get('user_id')
@@ -643,8 +947,30 @@ def create_response():
     
     return jsonify({"message": "response successfully submitted"}), HTTPStatus.CREATED
 
+# ============================================================================
+#                              Ticket Archival
+# ============================================================================
 @bp.route('/archive_ticket', methods=['POST', 'OPTIONS'])
 def archive_ticket():
+    """
+    Archives a ticket and all associated responses.
+
+    Process:
+        - Copies Ticket → ArchivedTicket
+        - Copies all Responses → ArchivedResponses
+        - Deletes the active ticket and its responses
+        - Enforces advisor/admin‑only access
+
+    Expects JSON:
+        ticket_id: ticket to archive
+
+    Returns:
+        200 OK on success,
+        400 BAD REQUEST for missing ticket_id,
+        401 UNAUTHORIZED if user lacks permission,
+        404 NOT FOUND if ticket does not exist,
+        500 INTERNAL SERVER ERROR on commit failure.
+    """
     if request.method == "OPTIONS":
         return "", 204
     user_id = session.get('user_id')
@@ -705,7 +1031,11 @@ def archive_ticket():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Unable to archive ticket", "details": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
-    
+
+# ============================================================================
+#                                 Diagnostics
+# ============================================================================
 @bp.route("/test", methods=['GET'])
 def test():
+    """Simple health‑check endpoint used to verify API is reachable."""
     return "This works", 200
