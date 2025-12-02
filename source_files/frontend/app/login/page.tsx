@@ -1,20 +1,11 @@
 // import AcmeLogo from '@/app/ui/acme-logo';
 import LoginForm from '@/app/componenets/LoginForm';
-import { Suspense } from 'react';
- 
+
 export default function LoginPage() {
   return (
-    <main className="flex items-center justify-center md:h-screen">
-      <div className="relative mx-auto flex w-full max-w-[400px] flex-col space-y-2.5 p-4 md:-mt-32">
-        <div className="flex h-20 w-full items-end rounded-lg bg-[#007030] p-3 md:h-36">
-          <div className="w-32 text-black md:w-36 justify-center flex items-center">
-            {/* <AcmeLogo /> */}
-            <h1 className="text-white font-bold text-3xl">University of Oregon</h1>
-          </div>
-        </div>
-        <Suspense>
-          <LoginForm />
-        </Suspense>
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 py-12 px-4">
+      <div className="w-full max-w-md">
+        <LoginForm />
       </div>
     </main>
   );
