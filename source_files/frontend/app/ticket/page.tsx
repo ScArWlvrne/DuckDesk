@@ -20,6 +20,7 @@ import Description from "../componenets/ticket/description";
 import TestimonialWall from "../componenets/ticket/details";
 import Chain from "../componenets/ticket/response";
 import LogoutButton from "../componenets/LogoutButton";
+import NewResponse from "../componenets/ticket/newResponse";
 
 const statusOptions = [
   { value: "OPEN", label: "Open" },
@@ -585,6 +586,7 @@ export default function TicketPage() {
           Number.isNaN(numericTicketId) ? undefined : numericTicketId.toString()
         }
       />
+      <NewResponse ticketId={numericTicketId as number} onSubmitted={fetchTicket} />
       <Chain responses={ticketDetails.responses} />
     </>
   );

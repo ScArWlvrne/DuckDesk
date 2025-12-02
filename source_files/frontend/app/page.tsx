@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import AdvisorDashboard from "./componenets/AdvisorDashboard";
+import StudentDashboard from "./componenets/StudentDashboard";
 import Navigate from "./componenets/Navigate";
 import TicketSection from "./componenets/TicketSection";
 import {
@@ -177,27 +178,17 @@ export default function Home() {
     );
   }
 
-  const grouped = groupTicketsByStatus(apiTickets);
-
+  // Render student-facing dashboard (same layout as advisor but no priority column)
   return (
-    <div
-      className="bg-white relative size-full min-h-screen px-8"
-      data-name="Student view"
-    >
-      <Navigate user={displayUser} newticket={false} />
-      <div className="pt-[120px] pb-12">
-        {loading ? (
-          <div className="flex items-center justify-center py-20 text-slate-600">
-            Loading tickets...
-          </div>
-        ) : (
-          <div className="flex flex-col gap-8">
-            <TicketSection title="In Process" tickets={grouped.inProcess} />
-            <TicketSection title="New" tickets={grouped.new} />
-            <TicketSection title="closed" tickets={grouped.closed} />
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-12">
+      <StudentDashboard
+        user={displayUser}
+        tickets={apiTickets}
+        filters={filters}
+        loading={loading}
+        onFilterChange={handleFilterChange}
+        onResetFilters={resetFilters}
+      />
     </div>
   );
 }

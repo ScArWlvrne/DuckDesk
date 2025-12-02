@@ -597,6 +597,8 @@ def archived_ticket_details():
 
 @bp.route('/create_response', methods=['POST', 'OPTIONS'])
 def create_response():
+    if request.method == "OPTIONS":
+        return "", 204
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "No user logged in"}), HTTPStatus.UNAUTHORIZED

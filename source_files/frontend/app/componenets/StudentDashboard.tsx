@@ -2,18 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
-import LogoutButton from "./LogoutButton";
-
-type AdvisorDashboardProps = {
-  user: User;
-  tickets: ApiTicket[];
-  filters: FilterState;
-  loading: boolean;
-  viewArchived: boolean;
-  onFilterChange: (updates: Partial<FilterState>) => void;
-  onResetFilters: () => void;
-  onToggleArchived: (archived: boolean) => void;
-};
 
 const statusStyles: Record<
   number,
@@ -41,27 +29,6 @@ const statusStyles: Record<
   },
 };
 
-const priorityStyles: Record<
-  number,
-  { label: string; className: string; borderClass: string }
-> = {
-  3: {
-    label: "High",
-    className: "bg-rose-50 text-rose-700",
-    borderClass: "border-rose-100",
-  },
-  2: {
-    label: "Medium",
-    className: "bg-amber-50 text-amber-700",
-    borderClass: "border-amber-100",
-  },
-  1: {
-    label: "Low",
-    className: "bg-emerald-50 text-emerald-700",
-    borderClass: "border-emerald-100",
-  },
-};
-
 const formatDate = (value?: string | null) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -74,25 +41,6 @@ const formatDate = (value?: string | null) => {
 
 const StatusPill = ({ status }: { status: number }) => {
   const style = statusStyles[status] ?? statusStyles[1];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
-    >
-      {style.label}
-    </span>
-  );
-};
-
-const PriorityPill = ({ priority }: { priority: number | null }) => {
-  if (priority === null || priority === undefined) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-        Unset
-      </span>
-    );
-  }
-
-  const style = priorityStyles[priority] ?? priorityStyles[1];
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
@@ -137,21 +85,6 @@ const FilterField = ({
   </label>
 );
 
-const QueueItem = ({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) => (
-  <div className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
-    <p className="text-sm text-slate-700">{label}</p>
-    <span className={`text-base font-semibold ${tone}`}>{value}</span>
-  </div>
-);
-
 const formatDepartmentLabel = (label?: string | null, fallback = "-") => {
   if (!label) return fallback;
   const spaced = label.replace(/_/g, " ").trim();
@@ -162,43 +95,28 @@ const formatDepartmentLabel = (label?: string | null, fallback = "-") => {
     .join(" ");
 };
 
-export default function AdvisorDashboard({
+export default function StudentDashboard({
   user,
   tickets,
   filters,
   loading,
-  viewArchived,
   onFilterChange,
   onResetFilters,
-  onToggleArchived,
-}: AdvisorDashboardProps) {
+}: {
+  user: User;
+  tickets: ApiTicket[];
+  filters: FilterState;
+  loading: boolean;
+  onFilterChange: (updates: Partial<FilterState>) => void;
+  onResetFilters: () => void;
+}) {
   const router = useRouter();
-  const statusRank: Record<number, number> = {
-    1: 0, // Open
-    3: 1, // Awaiting advisor
-    2: 2, // Awaiting student
-    0: 3, // Closed
-  };
-
-  const getStatusRank = (status: number) => statusRank[status] ?? 4;
-  const getDate = (t: ApiTicket) =>
-    new Date(t.last_updated ?? t.created_at ?? "").getTime();
-  const getPriorityRank = (priority: number | null) =>
-    priority === null || priority === undefined ? -1 : priority;
-
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
-        // Status first (Open -> Awaiting advisor -> Awaiting student -> Closed)
-        const statusCompare = getStatusRank(a.status) - getStatusRank(b.status);
-        if (statusCompare !== 0) return statusCompare;
-
-        // Then by least recent to most recent (older first)
-        const dateCompare = getDate(a) - getDate(b);
-        if (dateCompare !== 0) return dateCompare;
-
-        // Finally by priority (High 3 -> Medium 2 -> Low 1 -> unset)
-        return getPriorityRank(b.priority ?? null) - getPriorityRank(a.priority ?? null);
+        const left = new Date(a.last_updated ?? a.created_at ?? "").getTime();
+        const right = new Date(b.last_updated ?? b.created_at ?? "").getTime();
+        return right - left;
       }),
     [tickets]
   );
@@ -247,33 +165,9 @@ export default function AdvisorDashboard({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-[#007030]">
-            Advisor Dashboard
-          </h1>
+          <h1 className="text-3xl font-semibold text-[#007030]">Tickets</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm">
-            {[
-              { label: "Active queue", archived: false },
-              { label: "Archived", archived: true },
-            ].map((item) => {
-              const active = viewArchived === item.archived;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => onToggleArchived(item.archived)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                    active
-                      ? "bg-[#007030] text-white shadow"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
           <a
             href="/editTicket"
             className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
@@ -285,15 +179,10 @@ export default function AdvisorDashboard({
               {user.name.slice(0, 1).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {user.name}
-              </p>
-              <p className="text-xs uppercase text-slate-500 tracking-wide">
-                {user.role}
-              </p>
+              <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+              <p className="text-xs uppercase text-slate-500 tracking-wide">{user.role}</p>
             </div>
           </div>
-          <LogoutButton />
         </div>
       </div>
 
@@ -359,22 +248,6 @@ export default function AdvisorDashboard({
                   <option value="0">Closed</option>
                 </select>
               </FilterField>
-              <FilterField label="Priority">
-                <select
-                  value={filters.priority}
-                  onChange={(event) =>
-                    onFilterChange({
-                      priority: event.target.value as FilterState["priority"],
-                    })
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-[#007030] focus:outline-none focus:ring-2 focus:ring-[#007030]/20"
-                >
-                  <option value="all">All priorities</option>
-                  <option value="3">High</option>
-                  <option value="2">Medium</option>
-                  <option value="1">Low</option>
-                </select>
-              </FilterField>
               <FilterField label="Department">
                 <select
                   value={filters.department}
@@ -400,11 +273,9 @@ export default function AdvisorDashboard({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {viewArchived ? "Archived tickets" : "Ticket queue"}
-              </p>
+              <p className="text-sm font-semibold text-slate-900">Ticket queue</p>
               <p className="text-xs text-slate-500">
-                Sorted by most recent activity - {sortedTickets.length} results
+                Sorted by most recent activity · {sortedTickets.length} results
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -453,9 +324,6 @@ export default function AdvisorDashboard({
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Department
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Priority
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Status
@@ -524,9 +392,6 @@ export default function AdvisorDashboard({
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-800">
-                          <PriorityPill priority={ticket.priority} />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
                           <StatusPill status={ticket.status} />
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
@@ -537,12 +402,11 @@ export default function AdvisorDashboard({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              const suffix = viewArchived ? "&archived=1" : "";
-                              router.push(`/ticket?id=${ticket.ticket_id}${suffix}`);
+                              router.push(`/ticket?id=${ticket.ticket_id}`);
                             }}
                             className="rounded-full border border-[#007030] px-3 py-1 text-xs font-semibold text-[#007030] transition hover:bg-[#007030]/10"
                           >
-                            {viewArchived ? "View" : "Edit"}
+                            View
                           </button>
                         </td>
                       </tr>

@@ -316,6 +316,23 @@ export async function getDepartments(): Promise<Department[]> {
 }
 
 /**
+ * Create a response for a ticket
+ */
+export async function createResponse(data: {
+  ticket_id: number;
+  message: string;
+}): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/api/create_response', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      "Allow-Control-Allow-Origin": "*"
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+/**
  * Get archived tickets with optional filters
  */
 export async function getArchivedTickets(params?: {

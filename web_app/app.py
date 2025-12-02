@@ -39,12 +39,7 @@ def create_app():
     CORS(
     app,
     supports_credentials=True,
-    origins=[
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "https://duckdesk.org",
-        "https://www.duckdesk.org",
-    ],
+    origins=os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
     )
 
     db.init_app(app)
@@ -55,4 +50,4 @@ def create_app():
 
 if __name__ == '__main__':
     debug = os.getenv("FLASK_ENV") != "production"
-    create_app().run(debug=debug, host="0.0.0.0")
+    create_app().run(debug=debug, host=os.getenv("BACKEND_URL"))
