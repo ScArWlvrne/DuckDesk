@@ -35,11 +35,16 @@ def create_app():
         app.config['SESSION_COOKIE_SECURE'] = False
 
     app.config['SESSION_COOKIE_HTTPONLY'] = True
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
     
     CORS(
     app,
     supports_credentials=True,
-    origins=os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
+    origins=[FRONTEND_URL,
+              "http://127.0.0.1:3000",
+              "http://localhost:3000",
+              "https://duckdesk.org",
+              "https://www.duckdesk.org"]
     )
 
     db.init_app(app)
