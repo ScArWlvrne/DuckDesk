@@ -1,11 +1,10 @@
 'use client'
 
 import Navigate from "../componenets/Navigate";
-import EditForm from "../componenets/EditTicket"
+import EditForm from "../componenets/EditTicket";
 import { useState, useEffect } from "react";
-import { getCurrentUser, ApiUser } from "../../lib/api";
+import { getCurrentUser } from "../../lib/api";
 import { useRouter } from "next/navigation";
-import LogoutButton from "../componenets/LogoutButton";
 
 export interface User {
   name: string;
@@ -58,9 +57,8 @@ export default function Home() {
           onClick={() => router.push("/")}
           className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
-          ← Back to dashboard
+          Back to dashboard
         </button>
-        <LogoutButton />
       </div>
       <div className="pb-12">
         <EditForm />

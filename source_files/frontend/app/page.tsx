@@ -163,32 +163,38 @@ export default function Home() {
 
   if (isAdvisorView) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-12">
-        <AdvisorDashboard
-          user={displayUser}
-          tickets={apiTickets}
-          filters={filters}
-          loading={loading}
-          viewArchived={viewArchived}
-          onFilterChange={handleFilterChange}
-          onResetFilters={resetFilters}
-          onToggleArchived={handleToggleArchivedView}
-        />
+      <div className="relative min-h-screen bg-slate-50">
+        <Navigate user={displayUser} newticket={false} />
+        <div className="px-4 py-6 pt-[120px] sm:px-6 lg:px-12">
+          <AdvisorDashboard
+            user={displayUser}
+            tickets={apiTickets}
+            filters={filters}
+            loading={loading}
+            viewArchived={viewArchived}
+            onFilterChange={handleFilterChange}
+            onResetFilters={resetFilters}
+            onToggleArchived={handleToggleArchivedView}
+          />
+        </div>
       </div>
     );
   }
 
   // Render student-facing dashboard (same layout as advisor but no priority column)
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-12">
-      <StudentDashboard
-        user={displayUser}
-        tickets={apiTickets}
-        filters={filters}
-        loading={loading}
-        onFilterChange={handleFilterChange}
-        onResetFilters={resetFilters}
-      />
+    <div className="relative min-h-screen bg-slate-50">
+      <Navigate user={displayUser} newticket={false} />
+      <div className="px-4 py-6 pt-[120px] sm:px-6 lg:px-12">
+        <StudentDashboard
+          user={displayUser}
+          tickets={apiTickets}
+          filters={filters}
+          loading={loading}
+          onFilterChange={handleFilterChange}
+          onResetFilters={resetFilters}
+        />
+      </div>
     </div>
   );
 }
