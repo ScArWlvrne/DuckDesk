@@ -168,12 +168,6 @@ export default function StudentDashboard({
           <h1 className="text-3xl font-semibold text-[#007030]">Tickets</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <a
-            href="/editTicket"
-            className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
-          >
-            New ticket
-          </a>
           <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
             <div className="h-9 w-9 rounded-full bg-[#007030]/10 text-center text-base font-semibold text-[#007030] leading-9">
               {user.name.slice(0, 1).toUpperCase()}

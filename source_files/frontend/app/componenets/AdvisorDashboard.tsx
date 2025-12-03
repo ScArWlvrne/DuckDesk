@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
-import LogoutButton from "./LogoutButton";
 
 type AdvisorDashboardProps = {
   user: User;
@@ -274,12 +273,6 @@ export default function AdvisorDashboard({
               );
             })}
           </div>
-          <a
-            href="/editTicket"
-            className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
-          >
-            New ticket
-          </a>
           <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
             <div className="h-9 w-9 rounded-full bg-[#007030]/10 text-center text-base font-semibold text-[#007030] leading-9">
               {user.name.slice(0, 1).toUpperCase()}
@@ -293,7 +286,6 @@ export default function AdvisorDashboard({
               </p>
             </div>
           </div>
-          <LogoutButton />
         </div>
       </div>
 
