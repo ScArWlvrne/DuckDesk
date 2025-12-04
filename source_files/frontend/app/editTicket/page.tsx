@@ -20,6 +20,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchUser = async () => {
+      // Fetch current user to render nav and gate the form experience.
       try {
         const apiUser = await getCurrentUser();
         if (apiUser) {

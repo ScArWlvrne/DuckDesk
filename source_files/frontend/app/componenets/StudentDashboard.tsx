@@ -7,6 +7,7 @@ const statusStyles: Record<
   number,
   { label: string; className: string; borderClass: string }
 > = {
+  // API exposes numeric status codes; map to display labels and subtle pill styling.
   1: {
     label: "Open",
     className: "bg-sky-50 text-sky-700",
@@ -114,6 +115,7 @@ export default function StudentDashboard({
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
+        // Show most recently updated tickets first for students.
         const left = new Date(a.last_updated ?? a.created_at ?? "").getTime();
         const right = new Date(b.last_updated ?? b.created_at ?? "").getTime();
         return right - left;
@@ -145,6 +147,7 @@ export default function StudentDashboard({
   const awaitingStudent = statusCounts.awaitingStudent;
 
   const departmentOptions = useMemo(() => {
+    // Build dropdown options from currently loaded tickets; avoids an extra fetch on the student view.
     const map = new Map<number, string>();
     tickets.forEach((ticket) => {
       if (!ticket.department) return;
