@@ -542,10 +542,10 @@ def get_tickets():
     )
 
     priority_order = case(
-        (Ticket.priority == 3, 1), # High
-        (Ticket.priority == 2, 2),   # Medium
-        (Ticket.priority == 1, 3),   # Low
-        else_=4                      # Unset / None
+        (cast(Ticket.priority, Integer) == 3, 1),  # High
+        (cast(Ticket.priority, Integer) == 2, 2),  # Medium
+        (cast(Ticket.priority, Integer) == 1, 3),  # Low
+        else_=4
     )
 
 
@@ -687,10 +687,10 @@ def get_archived_tickets():
     )
 
     priority_order = case(
-        (ArchivedTicket.priority == 3, 1), # High
-        (ArchivedTicket.priority == 2, 2),   # Medium
-        (ArchivedTicket.priority == 1, 3),   # Low
-        else_=4                      # Unset / None
+        (cast(ArchivedTicket.priority, Integer) == 3, 1),  # High
+        (cast(ArchivedTicket.priority, Integer) == 2, 2),  # Medium
+        (cast(ArchivedTicket.priority, Integer) == 1, 3),  # Low
+        else_=4
     )
 
     page = request.args.get("page", 1, type=int)
