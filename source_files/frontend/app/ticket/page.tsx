@@ -528,24 +528,27 @@ export default function TicketPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between px-6 pt-6">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          ← Back to dashboard
-        </button>
-        <LogoutButton />
+      <div className="fixed bg-white left-0 right-0 top-0 z-40 border-b border-slate-200">
+        <div className="px-4 sm:px-6 lg:px-12 py-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            ← Back
+          </button>
+          <LogoutButton />
+        </div>
       </div>
-      <Header
-        title={ticketDetails.subject}
-        ticketId={ticketId || ""}
-        status={status}
-      />
-      {isArchivedView ? (
-        <div className="px-6 pb-8">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+      
+      <div className="pt-[80px] px-4 sm:px-6 lg:px-12 pb-8">
+        <Header
+          title={ticketDetails.subject}
+          ticketId={ticketId || ""}
+          status={status}
+        />
+        {isArchivedView ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 mt-6">
             This ticket has been archived and is read-only. Head back to the archived
             queue to browse other archived tickets.
             <div className="mt-3">
@@ -558,36 +561,34 @@ export default function TicketPage() {
               </button>
             </div>
           </div>
-        </div>
-      ) : user ? (
-        <TicketEditor
-          ticketId={numericTicketId as number}
-          ticket={ticketDetails}
-          user={user}
-          onUpdated={fetchTicket}
-          onArchived={handleArchivedRedirect}
-        />
-      ) : (
-        <div className="px-6 pb-8">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        ) : user ? (
+          <TicketEditor
+            ticketId={numericTicketId as number}
+            ticket={ticketDetails}
+            user={user}
+            onUpdated={fetchTicket}
+            onArchived={handleArchivedRedirect}
+          />
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 mt-6">
             Log in to edit ticket details. Status is still visible above.
           </div>
-        </div>
-      )}
-      <Description description={ticketDetails.body} />
-      <TestimonialWall
-        assignee={ticketDetails.assignee}
-        lastUpdated={ticketDetails.last_updated}
-        modifiedBy={ticketDetails.assignee || ticketDetails.author}
-        department={ticketDetails.department}
-        requester={ticketDetails.author}
-        createdAt={ticketDetails.created_at}
-        studentNumber={
-          Number.isNaN(numericTicketId) ? undefined : numericTicketId.toString()
-        }
-      />
-      <NewResponse ticketId={numericTicketId as number} onSubmitted={fetchTicket} />
-      <Chain responses={ticketDetails.responses} />
+        )}
+        <Description description={ticketDetails.body} />
+        <TestimonialWall
+          assignee={ticketDetails.assignee}
+          lastUpdated={ticketDetails.last_updated}
+          modifiedBy={ticketDetails.assignee || ticketDetails.author}
+          department={ticketDetails.department}
+          requester={ticketDetails.author}
+          createdAt={ticketDetails.created_at}
+          studentNumber={
+            Number.isNaN(numericTicketId) ? undefined : numericTicketId.toString()
+          }
+        />
+        <NewResponse ticketId={numericTicketId as number} onSubmitted={fetchTicket} />
+        <Chain responses={ticketDetails.responses} />
+      </div>
     </>
   );
 }

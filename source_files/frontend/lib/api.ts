@@ -140,6 +140,53 @@ export async function login(email: string, password: string): Promise<void> {
 }
 
 /**
+ * Sign up a new user and send verification email
+ */
+export async function signup(data: {
+  email: string;
+  name: string;
+  password: string;
+  role?: string;
+}): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/signup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: 'include',
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(error.error || error.message || `Signup failed: ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Verify user email with verification code
+ */
+export async function verifyEmail(email: string, code: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/verify/${encodeURIComponent(email)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: 'include',
+    body: JSON.stringify({ code })
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(error.error || error.message || `Verification failed: ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Logout current user
  */
 export async function logout(): Promise<void> {

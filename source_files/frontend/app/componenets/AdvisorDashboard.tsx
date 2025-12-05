@@ -2,6 +2,9 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
+import TicketCard from "./TicketCard";
+import Card from "./ui/Card";
+import Badge, { StatusBadge, PriorityBadge } from "./ui/Badge";
 
 type AdvisorDashboardProps = {
   user: User;
@@ -14,53 +17,6 @@ type AdvisorDashboardProps = {
   onToggleArchived: (archived: boolean) => void;
 };
 
-const statusStyles: Record<
-  number,
-  { label: string; className: string; borderClass: string }
-> = {
-  1: {
-    label: "Open",
-    className: "bg-sky-50 text-sky-700",
-    borderClass: "border-sky-100",
-  },
-  2: {
-    label: "Awaiting Student",
-    className: "bg-amber-50 text-amber-700",
-    borderClass: "border-amber-100",
-  },
-  3: {
-    label: "Awaiting Advisor",
-    className: "bg-violet-50 text-violet-700",
-    borderClass: "border-violet-100",
-  },
-  0: {
-    label: "Closed",
-    className: "bg-slate-100 text-slate-700",
-    borderClass: "border-slate-200",
-  },
-};
-
-const priorityStyles: Record<
-  number,
-  { label: string; className: string; borderClass: string }
-> = {
-  3: {
-    label: "High",
-    className: "bg-rose-50 text-rose-700",
-    borderClass: "border-rose-100",
-  },
-  2: {
-    label: "Medium",
-    className: "bg-amber-50 text-amber-700",
-    borderClass: "border-amber-100",
-  },
-  1: {
-    label: "Low",
-    className: "bg-emerald-50 text-emerald-700",
-    borderClass: "border-emerald-100",
-  },
-};
-
 const formatDate = (value?: string | null) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -69,36 +25,6 @@ const formatDate = (value?: string | null) => {
     month: "short",
     day: "numeric",
   });
-};
-
-const StatusPill = ({ status }: { status: number }) => {
-  const style = statusStyles[status] ?? statusStyles[1];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
-    >
-      {style.label}
-    </span>
-  );
-};
-
-const PriorityPill = ({ priority }: { priority: number | null }) => {
-  if (priority === null || priority === undefined) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-        Unset
-      </span>
-    );
-  }
-
-  const style = priorityStyles[priority] ?? priorityStyles[1];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${style.className} ${style.borderClass}`}
-    >
-      {style.label}
-    </span>
-  );
 };
 
 const SummaryCard = ({
@@ -112,7 +38,7 @@ const SummaryCard = ({
   tone: string;
   helper?: string;
 }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  <Card>
     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
       {title}
     </p>
@@ -120,7 +46,7 @@ const SummaryCard = ({
       <p className={`text-3xl font-semibold ${tone}`}>{value}</p>
       {helper ? <span className="text-xs text-slate-500">{helper}</span> : null}
     </div>
-  </div>
+  </Card>
 );
 
 const FilterField = ({
@@ -134,21 +60,6 @@ const FilterField = ({
     <span className="text-sm font-medium text-slate-700">{label}</span>
     {children}
   </label>
-);
-
-const QueueItem = ({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) => (
-  <div className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
-    <p className="text-sm text-slate-700">{label}</p>
-    <span className={`text-base font-semibold ${tone}`}>{value}</span>
-  </div>
 );
 
 const formatDepartmentLabel = (label?: string | null, fallback = "-") => {
@@ -244,13 +155,13 @@ export default function AdvisorDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 md:gap-6 md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-[#007030]">
+          <h1 className="text-2xl md:text-3xl font-semibold text-[#007030]">
             Advisor Dashboard
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full md:w-auto">
           <div className="flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm">
             {[
               { label: "Active queue", archived: false },
@@ -273,11 +184,11 @@ export default function AdvisorDashboard({
               );
             })}
           </div>
-          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
+          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 md:px-4 py-2 shadow-sm">
             <div className="h-9 w-9 rounded-full bg-[#007030]/10 text-center text-base font-semibold text-[#007030] leading-9">
               {user.name.slice(0, 1).toUpperCase()}
             </div>
-            <div>
+            <div className="hidden sm:block">
               <p className="text-sm font-semibold text-slate-900">
                 {user.name}
               </p>
@@ -289,7 +200,7 @@ export default function AdvisorDashboard({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           title="Open / New"
           value={statusCounts.open}
@@ -312,10 +223,10 @@ export default function AdvisorDashboard({
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+        <aside className="space-y-4 order-2 lg:order-1">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-semibold text-slate-900">Filters</p>
               <button
                 type="button"
@@ -325,7 +236,7 @@ export default function AdvisorDashboard({
                 Reset
               </button>
             </div>
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               <FilterField label="Search queue">
                 <input
                   value={filters.text}
@@ -386,162 +297,193 @@ export default function AdvisorDashboard({
                 </select>
               </FilterField>
             </div>
-          </div>
+          </Card>
         </aside>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {viewArchived ? "Archived tickets" : "Ticket queue"}
-              </p>
-              <p className="text-xs text-slate-500">
-                Sorted by most recent activity - {sortedTickets.length} results
-              </p>
+        <section className="order-1 lg:order-2 space-y-4">
+          <Card>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {viewArchived ? "Archived tickets" : "Ticket queue"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Sorted by most recent activity - {sortedTickets.length} results
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "All", value: "all" },
+                  { label: "Open", value: "1" },
+                  { label: "Awaiting advisor", value: "3" },
+                  { label: "Awaiting student", value: "2" },
+                  { label: "Closed", value: "0" },
+                ].map((chip) => {
+                  const active = filters.status === chip.value;
+                  return (
+                    <button
+                      key={chip.value}
+                      type="button"
+                      onClick={() => onFilterChange({ status: chip.value as FilterState["status"] })}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        active
+                          ? "border-[#007030] bg-[#007030]/10 text-[#007030]"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: "All", value: "all" },
-                { label: "Open", value: "1" },
-                { label: "Awaiting advisor", value: "3" },
-                { label: "Awaiting student", value: "2" },
-                { label: "Closed", value: "0" },
-              ].map((chip) => {
-                const active = filters.status === chip.value;
-                return (
-                  <button
-                    key={chip.value}
-                    type="button"
-                    onClick={() => onFilterChange({ status: chip.value as FilterState["status"] })}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      active
-                        ? "border-[#007030] bg-[#007030]/10 text-[#007030]"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
+          </Card>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-3">
+            {loading ? (
+              <Card>
+                <p className="text-center text-sm text-slate-500 py-8">
+                  Loading queue...
+                </p>
+              </Card>
+            ) : sortedTickets.length === 0 ? (
+              <Card>
+                <p className="text-center text-sm text-slate-500 py-8">
+                  No tickets match the current filters.
+                </p>
+              </Card>
+            ) : (
+              sortedTickets.map((ticket) => (
+                <TicketCard
+                  key={ticket.ticket_id}
+                  ticket={ticket}
+                  showPriority
+                  viewArchived={viewArchived}
+                />
+              ))
+            )}
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-100">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Ticket
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Subject
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Requester
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Assignee
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Department
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Priority
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Updated
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {loading ? (
+          {/* Desktop Table View */}
+          <div className="hidden lg:block">
+            <div className="overflow-hidden rounded-xl border border-slate-100">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <td
-                        colSpan={8}
-                        className="px-4 py-8 text-center text-sm text-slate-500"
-                      >
-                        Loading queue...
-                      </td>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Ticket
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Subject
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Requester
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Assignee
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Department
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Priority
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Updated
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Actions
+                      </th>
                     </tr>
-                  ) : sortedTickets.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-4 py-8 text-center text-sm text-slate-500"
-                      >
-                        No tickets match the current filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedTickets.map((ticket) => (
-                      <tr
-                        key={ticket.ticket_id}
-                        className="hover:bg-slate-50/60 cursor-pointer"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => router.push(`/ticket?id=${ticket.ticket_id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") router.push(`/ticket?id=${ticket.ticket_id}`);
-                        }}
-                      >
-                        <td className="px-4 py-3 text-sm font-semibold text-slate-900">
-                          #{ticket.ticket_id}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          <div className="max-w-[320px] truncate">{ticket.subject}</div>
-                          <p className="text-xs text-slate-500">
-                            {ticket.message.slice(0, 80)}
-                            {ticket.message.length > 80 ? "…" : ""}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          {ticket.author_name || `User ${ticket.author_id}`}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          {ticket.assignee_name || "Unassigned"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          {formatDepartmentLabel(
-                            ticket.department_name ||
-                              (ticket.department
-                                ? `Department ${ticket.department}`
-                                : "-")
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          <PriorityPill priority={ticket.priority} />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-800">
-                          <StatusPill status={ticket.status} />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          {formatDate(ticket.last_updated)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const suffix = viewArchived ? "&archived=1" : "";
-                              router.push(`/ticket?id=${ticket.ticket_id}${suffix}`);
-                            }}
-                            className="rounded-full border border-[#007030] px-3 py-1 text-xs font-semibold text-[#007030] transition hover:bg-[#007030]/10"
-                          >
-                            {viewArchived ? "View" : "Edit"}
-                          </button>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-8 text-center text-sm text-slate-500"
+                        >
+                          Loading queue...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : sortedTickets.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-8 text-center text-sm text-slate-500"
+                        >
+                          No tickets match the current filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedTickets.map((ticket) => (
+                        <tr
+                          key={ticket.ticket_id}
+                          className="hover:bg-slate-50/60 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => router.push(`/ticket?id=${ticket.ticket_id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") router.push(`/ticket?id=${ticket.ticket_id}`);
+                          }}
+                        >
+                          <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                            #{ticket.ticket_id}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            <div className="max-w-[320px] truncate">{ticket.subject}</div>
+                            <p className="text-xs text-slate-500">
+                              {ticket.message.slice(0, 80)}
+                              {ticket.message.length > 80 ? "…" : ""}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            {ticket.author_name || `User ${ticket.author_id}`}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            {ticket.assignee_name || "Unassigned"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            {formatDepartmentLabel(
+                              ticket.department_name ||
+                                (ticket.department
+                                  ? `Department ${ticket.department}`
+                                  : "-")
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            <PriorityBadge priority={ticket.priority} />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">
+                            <StatusBadge status={ticket.status} />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            {formatDate(ticket.last_updated)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-700">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const suffix = viewArchived ? "&archived=1" : "";
+                                router.push(`/ticket?id=${ticket.ticket_id}${suffix}`);
+                              }}
+                              className="rounded-full border border-[#007030] px-3 py-1 text-xs font-semibold text-[#007030] transition hover:bg-[#007030]/10"
+                            >
+                              {viewArchived ? "View" : "Edit"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
