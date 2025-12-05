@@ -154,7 +154,7 @@ class User(db.Model):
     display_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), default='student')
     password_hash = db.Column(db.LargeBinary, nullable=False)
-    created_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime(timezone=True))
 
     major_id = db.Column(db.Integer, db.ForeignKey('majors.major_id'))
     minor_id = db.Column(db.Integer, db.ForeignKey('minors.minor_id'))
@@ -198,8 +198,8 @@ class PendingUser(db.Model):
     role = db.Column(db.String, default="student")
     password_hash = db.Column(db.LargeBinary, nullable=False)
     verification_code = db.Column(db.String(5), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(PT))
-    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(PT))
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
 
 # Define ticket model that matches database table
 class Ticket(db.Model):
@@ -219,8 +219,8 @@ class Ticket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(PT))
-    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(PT), onupdate=lambda: datetime.now(PT))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(PT))
+    last_updated = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(PT), onupdate=lambda: datetime.now(PT))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
@@ -273,8 +273,8 @@ class ArchivedTicket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime)
-    last_updated = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime(timezone=True))
+    last_updated = db.Column(db.DateTime(timezone=True))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='archived_authored_tickets')
@@ -320,7 +320,7 @@ class Response(db.Model):
 
     response_id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now(timezone.utc))
     ticket = db.Column(db.ForeignKey('tickets.ticket_id'))
     author = db.Column(db.ForeignKey('users.user_id'))
 
@@ -354,7 +354,7 @@ class ArchivedResponse(db.Model):
 
     response_id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime(timezone=True))
     ticket = db.Column(db.ForeignKey('archived_tickets.ticket_id'))
     author = db.Column(db.ForeignKey('users.user_id'))
 
