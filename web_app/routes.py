@@ -36,7 +36,7 @@ This file contains:
 # bcrypt: secure password hashing and comparison.
 from http import HTTPStatus
 from flask import Blueprint, Flask, jsonify, request, render_template, redirect, url_for, session
-from sqlalchemy import case, or_, Integer, cast, asc
+from sqlalchemy import case, or_, Integer, cast, asc, func
 from sqlalchemy.orm import joinedload, aliased
 from app import db
 from datetime import datetime, timedelta
@@ -598,14 +598,22 @@ def get_tickets():
     
     if current_user.role in ['advisor', 'admin']: # type:ignore
         # Fetch all tickets from the database
-        pagination = query.order_by(status_order, priority_order, Ticket.last_updated.desc()).options(
+        pagination = query.order_by(
+            status_order,
+            priority_order,
+            func.date_trunc('day', Ticket.last_updated).asc()
+        ).options(
             joinedload(Ticket.author_user),
             joinedload(Ticket.assignee_user)
         ).paginate(page=page, per_page=per_page)  # type:ignore
         tickets = pagination.items
     else:
         # Fetch only tickets authored by the student
-        pagination = query.order_by(status_order, priority_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(
+        pagination = query.order_by(
+            status_order,
+            priority_order,
+            func.date_trunc('day', Ticket.last_updated).asc()
+        ).filter_by(author=user_id).options(
             joinedload(Ticket.author_user),
             joinedload(Ticket.assignee_user)
         ).paginate(page=page, per_page=per_page)  # type:ignore
@@ -743,13 +751,21 @@ def get_archived_tickets():
 
     # Advisors and admins can see all, students only their own
     if current_user.role in ['advisor', 'admin']:
-        pagination = query.order_by(status_order, priority_order, ArchivedTicket.last_updated.desc()).options(
+        pagination = query.order_by(
+            status_order,
+            priority_order,
+            func.date_trunc('day', ArchivedTicket.last_updated).asc()
+        ).options(
             joinedload(ArchivedTicket.author_user),
             joinedload(ArchivedTicket.assignee_user)
         ).paginate(page=page, per_page=per_page)
         tickets = pagination.items
     else:
-        pagination = query.order_by(status_order, priority_order, ArchivedTicket.last_updated.desc()).filter_by(author=user_id).options(
+        pagination = query.order_by(
+            status_order,
+            priority_order,
+            func.date_trunc('day', ArchivedTicket.last_updated).asc()
+        ).filter_by(author=user_id).options(
             joinedload(ArchivedTicket.author_user),
             joinedload(ArchivedTicket.assignee_user)
         ).paginate(page=page, per_page=per_page)
