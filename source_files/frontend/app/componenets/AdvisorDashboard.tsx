@@ -96,23 +96,7 @@ export default function AdvisorDashboard({
   const getPriorityRank = (priority: number | null) =>
     priority === null || priority === undefined ? -1 : priority;
 
-  const sortedTickets = useMemo(
-    () =>
-      [...tickets].sort((a, b) => {
-        // Sort for queue readability: status bucket first
-        // (Open -> Awaiting advisor -> Awaiting student -> Closed)
-        const statusCompare = getStatusRank(a.status) - getStatusRank(b.status);
-        if (statusCompare !== 0) return statusCompare;
-
-        // Then by least recent to most recent (older first) so stale items float up
-        const dateCompare = getDate(a) - getDate(b);
-        if (dateCompare !== 0) return dateCompare;
-
-        // Finally by priority (High 3 -> Medium 2 -> Low 1 -> unset)
-        return getPriorityRank(b.priority ?? null) - getPriorityRank(a.priority ?? null);
-      }),
-    [tickets]
-  );
+  const sortedTickets = tickets;
 
   const statusCounts = useMemo(
     () =>
