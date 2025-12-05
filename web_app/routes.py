@@ -833,7 +833,7 @@ def ticket_details():
         "author_id": ticket.author,
         "assignee": ticket.assignee_user.display_name if ticket.assignee_user else None,
         "assignee_id": ticket.assignee,
-        "department": ticket.dept_name.name if ticket.dept_name else None,
+        "department": ticket.dept_entry.name if ticket.dept_entry else None,
         "department_id": ticket.department,
         "priority": ticket.priority,
         "subject": ticket.subject,
@@ -895,7 +895,7 @@ def archived_ticket_details():
     response = {
         "author": ticket.author_user.display_name if ticket.author_user else None,
         "assignee": ticket.assignee_user.display_name if ticket.assignee_user else None,
-        "department": ticket.dept_name.name if ticket.dept_name else None,
+        "department": ticket.dept_entry.name if ticket.dept_entry else None,
         "priority": ticket.priority,
         "subject": ticket.subject,
         "body": ticket.message,
