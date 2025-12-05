@@ -600,8 +600,8 @@ def get_tickets():
         # Fetch all tickets from the database
         pagination = query.order_by(
             status_order,
-            priority_order,
-            func.date_trunc('day', Ticket.last_updated).asc()
+            func.date_trunc('day', Ticket.last_updated).asc(),
+            priority_order
         ).options(
             joinedload(Ticket.author_user),
             joinedload(Ticket.assignee_user)
@@ -763,8 +763,8 @@ def get_archived_tickets():
     else:
         pagination = query.order_by(
             status_order,
-            priority_order,
-            func.date_trunc('day', ArchivedTicket.last_updated).asc()
+            func.date_trunc('day', ArchivedTicket.last_updated).asc(),
+            priority_order
         ).filter_by(author=user_id).options(
             joinedload(ArchivedTicket.author_user),
             joinedload(ArchivedTicket.assignee_user)
