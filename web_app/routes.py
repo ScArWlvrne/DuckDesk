@@ -636,14 +636,6 @@ def get_tickets():
     tickets_data = []
     for t in tickets:
         ticket_dict = t.to_dict()
-        ticket_dict['author_name'] = t.author_user.display_name if t.author_user else None  # type:ignore
-        ticket_dict['assignee_name'] = t.assignee_user.display_name if t.assignee_user else None  # type:ignore
-        ticket_dict['department_name'] = (
-            (getattr(t.dept_name, "display_name", None) if t.dept_name else None)
-            or (getattr(t.dept_name, "name", None) if t.dept_name else None)
-            or department_map.get(t.department)
-            or (f"Department {t.department}" if t.department else None)
-        )
         tickets_data.append(ticket_dict)
 
     response = {
@@ -775,8 +767,6 @@ def get_archived_tickets():
     tickets_data = []
     for t in tickets:
         ticket_dict = t.to_dict()
-        ticket_dict["author_name"] = t.author_user.display_name if t.author_user else None
-        ticket_dict["assignee_name"] = t.assignee_user.display_name if t.assignee_user else None
         tickets_data.append(ticket_dict)
 
     response = {

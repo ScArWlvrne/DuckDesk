@@ -393,6 +393,8 @@ components:
           type: string
         department:
           type: integer
+        department_name:
+          type: string
         priority:
           type: integer
         status:

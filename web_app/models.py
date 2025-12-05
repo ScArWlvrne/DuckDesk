@@ -225,7 +225,7 @@ class Ticket(db.Model):
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='assigned_tickets')
-    dept_name = db.relationship("Department", foreign_keys=[department])
+    dept_entry = db.relationship("Department", foreign_keys=[department])
 
     
     def dbwrite(self, commit: bool = True):
@@ -254,7 +254,10 @@ class Ticket(db.Model):
             'message': self.message,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'author_name': self.author_user.display_name if self.author_user else None,
+            'assignee_name': self.assignee_user.display_name if self.assignee_user else None,
+            'department_name': self.dept_entry.name
         }
     
 class ArchivedTicket(db.Model):
@@ -279,7 +282,7 @@ class ArchivedTicket(db.Model):
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='archived_authored_tickets')
     assignee_user = db.relationship('User', foreign_keys=[assignee], backref='archived_assigned_tickets')
-    dept_name = db.relationship("Department", foreign_keys=[department])
+    dept_entry = db.relationship("Department", foreign_keys=[department])
 
     
     def dbwrite(self, commit: bool = True):
@@ -308,7 +311,10 @@ class ArchivedTicket(db.Model):
             'message': self.message,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'author_name': self.author_user.display_name if self.author_user else None,
+            'assignee_name': self.assignee_user.display_name if self.assignee_user else None,
+            'department_name': self.dept_entry.name
         }
     
 class Response(db.Model):
@@ -324,6 +330,8 @@ class Response(db.Model):
     ticket = db.Column(db.ForeignKey('tickets.ticket_id'))
     author = db.Column(db.ForeignKey('users.user_id'))
 
+    author_user = db.relationship('User', foreign_keys=[author], backref='responses')
+
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
@@ -340,9 +348,10 @@ class Response(db.Model):
         # for API responses.
         return {
             "message": self.message,
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "ticket": self.ticket,
-            "author": self.author
+            "author_id": self.author,
+            "author_name": self.author_user.display_name if self.author_user else None
         }
     
 class ArchivedResponse(db.Model):
@@ -358,6 +367,8 @@ class ArchivedResponse(db.Model):
     ticket = db.Column(db.ForeignKey('archived_tickets.ticket_id'))
     author = db.Column(db.ForeignKey('users.user_id'))
 
+    author_user = db.relationship('User', foreign_keys=[author], backref='archived_responses')
+
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
@@ -374,7 +385,8 @@ class ArchivedResponse(db.Model):
         # for API responses.
         return {
             "message": self.message,
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "ticket": self.ticket,
-            "author": self.author
+            "author_id": self.author,
+            "author_name": self.author_user.display_name if self.author_user else None
         }
