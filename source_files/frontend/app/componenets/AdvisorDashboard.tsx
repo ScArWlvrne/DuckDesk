@@ -99,11 +99,12 @@ export default function AdvisorDashboard({
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
-        // Status first (Open -> Awaiting advisor -> Awaiting student -> Closed)
+        // Sort for queue readability: status bucket first
+        // (Open -> Awaiting advisor -> Awaiting student -> Closed)
         const statusCompare = getStatusRank(a.status) - getStatusRank(b.status);
         if (statusCompare !== 0) return statusCompare;
 
-        // Then by least recent to most recent (older first)
+        // Then by least recent to most recent (older first) so stale items float up
         const dateCompare = getDate(a) - getDate(b);
         if (dateCompare !== 0) return dateCompare;
 
@@ -137,6 +138,7 @@ export default function AdvisorDashboard({
   const awaitingStudent = statusCounts.awaitingStudent;
 
   const departmentOptions = useMemo(() => {
+    // Build unique department options from the tickets we already have (no extra API call).
     const map = new Map<number, string>();
     tickets.forEach((ticket) => {
       if (!ticket.department) return;

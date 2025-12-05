@@ -5,7 +5,8 @@ info:
   description: API for the DuckDesk academic ticketing system
 
 servers:
-  - url: http://localhost:5000
+  - url: https://www.duckdesk.org/
+         https://api.duckdesk.org/api/
 
 paths:
 

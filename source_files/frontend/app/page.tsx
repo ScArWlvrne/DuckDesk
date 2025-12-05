@@ -53,6 +53,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [viewArchived, setViewArchived] = useState<boolean>(() => {
+    // Seed archived toggle from URL so links can deep-link to archived view.
     const viewParam = searchParams.get("view");
     const archivedParam = searchParams.get("archived");
     return (
@@ -73,6 +74,7 @@ export default function Home() {
   }, [searchParams]);
 
   const loadTickets = useCallback(async (activeFilters: FilterState, archived: boolean) => {
+    // Pull tickets with the current filter state; this is the single place we build query params.
     setLoading(true);
     setError(null);
     try {
@@ -105,6 +107,7 @@ export default function Home() {
   useEffect(() => {
     const initialView = viewArchived;
     const fetchData = async () => {
+      // Bootstraps the page: fetch current user, then initial ticket list.
       setLoading(true);
       setError(null);
       try {
@@ -132,17 +135,20 @@ export default function Home() {
   }, [loadTickets]);
 
   const handleFilterChange = (updates: Partial<FilterState>) => {
+    // Merge incoming updates, then refetch with the combined filters.
     const nextFilters = { ...filters, ...updates };
     setFilters(nextFilters);
     loadTickets(nextFilters, viewArchived);
   };
 
   const resetFilters = () => {
+    // Reset to defaults and refetch the current view (active or archived).
     setFilters(defaultFilters);
     loadTickets(defaultFilters, viewArchived);
   };
 
   const handleToggleArchivedView = (archived: boolean) => {
+    // Toggle active vs archived queues; preserves current filters.
     setViewArchived(archived);
     loadTickets(filters, archived);
   };
