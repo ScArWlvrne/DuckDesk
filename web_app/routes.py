@@ -242,9 +242,9 @@ def submit_ticket():
 
     if not all([department, subject, message]):
         return jsonify({"message": "Incomplete ticket structure"}), HTTPStatus.BAD_REQUEST
-   
-   
-    new_ticket = Ticket(author=author, department=department, subject=subject, message=message, status=TicketStatus.AWAITING_ASSIGNEE, assignee=assignee) # type:ignore
+    
+    status = TicketStatus.AWAITING_ASSIGNEE if assignee else TicketStatus.OPEN
+    new_ticket = Ticket(author=author, department=department, subject=subject, message=message, status=status, assignee=assignee) # type:ignore
     
     try:
         new_ticket.dbwrite(True)
@@ -535,6 +535,14 @@ def get_tickets():
         else_=5
     )
 
+    priority_order = case(
+        (Ticket.priority == 3, 1), # High
+        (Ticket.priority == 2, 2),   # Medium
+        (Ticket.priority == 1, 3),   # Low
+        else_=4                      # Unset / None
+    )
+
+
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
@@ -584,14 +592,14 @@ def get_tickets():
     
     if current_user.role in ['advisor', 'admin']: # type:ignore
         # Fetch all tickets from the database
-        pagination = query.order_by(status_order, Ticket.last_updated.desc()).options(
+        pagination = query.order_by(status_order, priority_order, Ticket.last_updated.desc()).options(
             joinedload(Ticket.author_user),
             joinedload(Ticket.assignee_user)
         ).paginate(page=page, per_page=per_page)  # type:ignore
         tickets = pagination.items
     else:
         # Fetch only tickets authored by the student
-        pagination = query.order_by(status_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(
+        pagination = query.order_by(status_order, priority_order, Ticket.last_updated.desc()).filter_by(author=user_id).options(
             joinedload(Ticket.author_user),
             joinedload(Ticket.assignee_user)
         ).paginate(page=page, per_page=per_page)  # type:ignore
@@ -672,6 +680,13 @@ def get_archived_tickets():
         else_=5
     )
 
+    priority_order = case(
+        (Ticket.priority == 3, 1), # High
+        (Ticket.priority == 2, 2),   # Medium
+        (Ticket.priority == 1, 3),   # Low
+        else_=4                      # Unset / None
+    )
+
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
@@ -722,13 +737,13 @@ def get_archived_tickets():
 
     # Advisors and admins can see all, students only their own
     if current_user.role in ['advisor', 'admin']:
-        pagination = query.order_by(status_order, ArchivedTicket.last_updated.desc()).options(
+        pagination = query.order_by(status_order, priority_order, ArchivedTicket.last_updated.desc()).options(
             joinedload(ArchivedTicket.author_user),
             joinedload(ArchivedTicket.assignee_user)
         ).paginate(page=page, per_page=per_page)
         tickets = pagination.items
     else:
-        pagination = query.order_by(status_order, ArchivedTicket.last_updated.desc()).filter_by(author=user_id).options(
+        pagination = query.order_by(status_order, priority_order, ArchivedTicket.last_updated.desc()).filter_by(author=user_id).options(
             joinedload(ArchivedTicket.author_user),
             joinedload(ArchivedTicket.assignee_user)
         ).paginate(page=page, per_page=per_page)
@@ -849,9 +864,11 @@ def archived_ticket_details():
     if not user_id:
         return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
 
-    current_user = User.query.get(user_id)
+    current_user: User | None = User.query.get(user_id)
+    if not current_user:
+        return jsonify({"message": "No user logged in"}), HTTPStatus.UNAUTHORIZED
 
-    ticket = ArchivedTicket.query.filter_by(ticket_id=ticket_id).first()
+    ticket: Ticket | None = ArchivedTicket.query.filter_by(ticket_id=ticket_id).first()
     if not ticket:
         return jsonify({"error": "Ticket not found"}), HTTPStatus.NOT_FOUND
 
