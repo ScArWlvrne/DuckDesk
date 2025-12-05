@@ -40,6 +40,8 @@ from sqlalchemy import case, or_, Integer, cast, asc
 from sqlalchemy.orm import joinedload, aliased
 from app import db
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+PT = ZoneInfo("America/Los_Angeles")
 from time import sleep
 from models import ArchivedResponse, Department, Major, Minor, User, PendingUser, Ticket, ArchivedTicket, TicketStatus, Response
 import os
@@ -149,7 +151,7 @@ def signup():
                             role=role,
                             password_hash=hashed_pw,
                             verification_code=code,
-                            expires_at=datetime.utcnow() + timedelta(minutes=10)
+                            expires_at=datetime.now(PT) + timedelta(minutes=10)
                         )
 
     db.session.add(pending)
@@ -181,7 +183,7 @@ def verify(email):
     if not pending:
         return "No pending signup found", HTTPStatus.NOT_FOUND
 
-    if datetime.utcnow() > pending.expires_at:
+    if datetime.now(PT) > pending.expires_at:
         db.session.delete(pending)
         db.session.commit()
         return "Verification code expired", HTTPStatus.BAD_REQUEST

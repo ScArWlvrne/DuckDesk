@@ -37,6 +37,8 @@ from app import db
 from datetime import datetime, UTC
 import enum
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+PT = ZoneInfo("America/Los_Angeles")
 
 # --------------------------- Enum Definitions --------------------------------
 # TicketStatus represents states used throughout ticket workflow logic.
@@ -196,7 +198,7 @@ class PendingUser(db.Model):
     role = db.Column(db.String, default="student")
     password_hash = db.Column(db.LargeBinary, nullable=False)
     verification_code = db.Column(db.String(5), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(PT))
     expires_at = db.Column(db.DateTime, nullable=False)
 
 # Define ticket model that matches database table
@@ -217,8 +219,8 @@ class Ticket(db.Model):
     subject = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.Integer, default=TicketStatus.OPEN)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    last_updated = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(PT))
+    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(PT), onupdate=lambda: datetime.now(PT))
 
     # Relationships
     author_user = db.relationship('User', foreign_keys=[author], backref='authored_tickets')
@@ -229,7 +231,7 @@ class Ticket(db.Model):
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PT)
         if not self.created_at:
             self.created_at = now
         self.last_updated = now
@@ -283,7 +285,7 @@ class ArchivedTicket(db.Model):
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PT)
         if not self.created_at:
             self.created_at = now
         self.last_updated = now
@@ -325,7 +327,7 @@ class Response(db.Model):
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PT)
         if not self.created_at:
             self.created_at = now
         db.session.add(self)
@@ -359,7 +361,7 @@ class ArchivedResponse(db.Model):
     def dbwrite(self, commit: bool = True):
         # Write the model instance to the database, optionally committing.
         # Ensures timestamps remain consistent for creation/update operations
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PT)
         if not self.created_at:
             self.created_at = now
         db.session.add(self)
