@@ -73,7 +73,6 @@ def create_app():
     Returns:
         Flask: A configured Flask application ready to be run or tested.
     """
-    from models import Department, Major, Minor, User, Ticket
     from routes import bp as main_bp
 
     app = Flask(__name__)
