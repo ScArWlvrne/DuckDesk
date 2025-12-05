@@ -542,9 +542,9 @@ def get_tickets():
     )
 
     priority_order = case(
-        (Ticket.priority == 3, 3), # High
+        (Ticket.priority == 3, 1), # High
         (Ticket.priority == 2, 2),   # Medium
-        (Ticket.priority == 1, 1),   # Low
+        (Ticket.priority == 1, 3),   # Low
         else_=4                      # Unset / None
     )
 
@@ -695,9 +695,9 @@ def get_archived_tickets():
     )
 
     priority_order = case(
-        (ArchivedTicket.priority == 3, 3), # High
+        (ArchivedTicket.priority == 3, 1), # High
         (ArchivedTicket.priority == 2, 2),   # Medium
-        (ArchivedTicket.priority == 1, 1),   # Low
+        (ArchivedTicket.priority == 1, 3),   # Low
         else_=4                      # Unset / None
     )
 
