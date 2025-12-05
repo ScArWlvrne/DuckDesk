@@ -129,6 +129,7 @@ function TicketEditor({ ticketId, ticket, user, onUpdated, onArchived }: EditorP
       ticket.department_id &&
       !opts.some((opt) => opt.value === String(ticket.department_id))
     ) {
+      // Ensure the current department stays selectable even if it is not returned by the list API.
       opts.unshift({
         value: String(ticket.department_id),
         label:
@@ -151,6 +152,7 @@ function TicketEditor({ ticketId, ticket, user, onUpdated, onArchived }: EditorP
       ticket.assignee_id &&
       !opts.some((opt) => opt.value === String(ticket.assignee_id))
     ) {
+      // Preserve current assignee if it was not part of the advisor list fetch.
       opts.unshift({
         value: String(ticket.assignee_id),
         label: ticket.assignee || `User ${ticket.assignee_id}`,
@@ -453,6 +455,7 @@ export default function TicketPage() {
     try {
       setLoading(true);
       setError(null);
+      // Choose the correct endpoint based on archived flag in the URL.
       const details = isArchivedView
         ? await getArchivedTicketDetails(ticketId)
         : await getTicketDetails(ticketId);

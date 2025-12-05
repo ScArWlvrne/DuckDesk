@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiTicket } from "../../lib/api";
 import type { FilterState, User } from "../page";
-import LogoutButton from "./LogoutButton";
 
 type AdvisorDashboardProps = {
   user: User;
@@ -19,6 +18,7 @@ const statusStyles: Record<
   number,
   { label: string; className: string; borderClass: string }
 > = {
+  // API returns numeric status codes; map to human labels and Tailwind tones.
   1: {
     label: "Open",
     className: "bg-sky-50 text-sky-700",
@@ -189,11 +189,12 @@ export default function AdvisorDashboard({
   const sortedTickets = useMemo(
     () =>
       [...tickets].sort((a, b) => {
-        // Status first (Open -> Awaiting advisor -> Awaiting student -> Closed)
+        // Sort for queue readability: status bucket first
+        // (Open -> Awaiting advisor -> Awaiting student -> Closed)
         const statusCompare = getStatusRank(a.status) - getStatusRank(b.status);
         if (statusCompare !== 0) return statusCompare;
 
-        // Then by least recent to most recent (older first)
+        // Then by least recent to most recent (older first) so stale items float up
         const dateCompare = getDate(a) - getDate(b);
         if (dateCompare !== 0) return dateCompare;
 
@@ -227,6 +228,7 @@ export default function AdvisorDashboard({
   const awaitingStudent = statusCounts.awaitingStudent;
 
   const departmentOptions = useMemo(() => {
+    // Build unique department options from the tickets we already have (no extra API call).
     const map = new Map<number, string>();
     tickets.forEach((ticket) => {
       if (!ticket.department) return;
@@ -274,12 +276,6 @@ export default function AdvisorDashboard({
               );
             })}
           </div>
-          <a
-            href="/editTicket"
-            className="rounded-full bg-[#007030] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104735] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007030]"
-          >
-            New ticket
-          </a>
           <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
             <div className="h-9 w-9 rounded-full bg-[#007030]/10 text-center text-base font-semibold text-[#007030] leading-9">
               {user.name.slice(0, 1).toUpperCase()}
@@ -293,7 +289,6 @@ export default function AdvisorDashboard({
               </p>
             </div>
           </div>
-          <LogoutButton />
         </div>
       </div>
 

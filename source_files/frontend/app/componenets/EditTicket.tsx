@@ -351,6 +351,7 @@ export default function EditForm() {
 
   useEffect(() => {
     const fetchDepartments = async () => {
+      // Populate department dropdown on mount; form relies on this data.
       try {
         const depts = await getDepartments();
         setDepartments(depts);
@@ -366,6 +367,7 @@ export default function EditForm() {
     setError(null);
     setSuccess(false);
 
+    // Basic client-side validation; backend still enforces required fields.
     if (!subject.trim() || !message.trim() || !department) {
       setError("Please fill in all required fields");
       return;
@@ -379,6 +381,7 @@ export default function EditForm() {
         message: message.trim(),
       });
       setSuccess(true);
+      // Redirect to the newly created ticket after a short success confirmation.
       setTimeout(() => {
         router.push(`/ticket?id=${result.ticket.ticket_id}`);
       }, 1000);
