@@ -113,6 +113,8 @@ def signup():
         400 BAD REQUEST for missing fields or existing user,
         500 INTERNAL SERVER ERROR if email sending fails.
     """
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json()
 
     email = data.get('email')
@@ -173,6 +175,8 @@ def verify(email):
         400 BAD REQUEST for incorrect code or expired code,
         404 NOT FOUND if no pending signup exists.
     """
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json()
     
     code = data.get('code')

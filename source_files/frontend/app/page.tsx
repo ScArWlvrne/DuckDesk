@@ -112,13 +112,16 @@ export default function Home() {
       setError(null);
       try {
         const apiUser = await getCurrentUser();
-        if (apiUser) {
-          setUser({
-            id: apiUser.user_id,
-            name: apiUser.display_name,
-            role: apiUser.role as "admin" | "advisor" | "student",
-          });
+        if (!apiUser) {
+          // User is not logged in, redirect to login page
+          window.location.href = "/login";
+          return;
         }
+        setUser({
+          id: apiUser.user_id,
+          name: apiUser.display_name,
+          role: apiUser.role as "admin" | "advisor" | "student",
+        });
         await loadTickets(defaultFilters, initialView);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -171,7 +174,7 @@ export default function Home() {
     return (
       <div className="relative min-h-screen bg-slate-50">
         <Navigate user={displayUser} newticket={false} />
-        <div className="px-4 py-6 pt-[120px] sm:px-6 lg:px-12">
+        <div className="px-4 py-6 pt-[120px] sm:px-6 md:pt-[100px] lg:px-12 lg:pt-[120px]">
           <AdvisorDashboard
             user={displayUser}
             tickets={apiTickets}
@@ -191,7 +194,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen bg-slate-50">
       <Navigate user={displayUser} newticket={false} />
-      <div className="px-4 py-6 pt-[120px] sm:px-6 lg:px-12">
+      <div className="px-4 py-6 pt-[120px] sm:px-6 md:pt-[100px] lg:px-12 lg:pt-[120px]">
         <StudentDashboard
           user={displayUser}
           tickets={apiTickets}
