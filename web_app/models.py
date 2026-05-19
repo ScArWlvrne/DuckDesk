@@ -49,6 +49,30 @@ class TicketStatus(enum.IntEnum):
     AWAITING_AUTHOR = 2
     AWAITING_ASSIGNEE = 3
 
+class WorkspaceType(enum.Enum):
+    ADVISING = "advising"
+    COURSE_SECTION = "course_section"
+    
+class WorkspaceState(enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ARCHIVED = "archived"
+
+class Workspace(db.Model):
+    """
+    Represents a workspace within the university.
+    This could be a department's advising office, or a course section.
+    """
+    __tablename__ = 'workspaces'
+
+    workspace_id = db.Column(db.Integer, primary_key=True)
+    display_name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.Enum(WorkspaceType), nullable=False)
+    state = db.Column(db.Enum(WorkspaceState), nullable=False, default=WorkspaceState.ACTIVE)
+    owner_id = db.Column(db.ForeignKey('users.user_id'), nullable=False)
+    memberships = None # TODO: How tf do I put an array here?
+    settings = None # TODO: some sort of backref or some shit
+
 class Department(db.Model):
     """
     Represents an academic department within the university.
